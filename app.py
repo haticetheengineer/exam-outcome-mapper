@@ -182,7 +182,7 @@ def build_excel(sorular, ocler, eslestirmeler, ogrenciler, anahtar) -> bytes:
 
     oc_map = {o["no"]: o["tanim"] for o in ocler}
     for ri, s in enumerate(sorular, 2):
-        esl    = eslestirmeler.get(s["no"], {})
+        esl    = eslestirmeler.get(s["no"], eslestirmeler.get(str(s["no"]), {}))
         oc_no  = esl.get("oc_no", "")
         zorluk = esl.get("zorluk", "Medium")
         dogru  = anahtar[s["no"]-1] if anahtar and s["no"]-1 < len(anahtar) else "-"
@@ -218,7 +218,7 @@ def build_excel(sorular, ocler, eslestirmeler, ogrenciler, anahtar) -> bytes:
         hstyle(ws2.cell(row=1, column=col, value=h))
 
     for ri, oc in enumerate(ocler, 2):
-        oc_s = [s for s in sorular if eslestirmeler.get(s["no"],{}).get("oc_no")==oc["no"]]
+        oc_s = [s for s in sorular if eslestirmeler.get(s["no"], eslestirmeler.get(str(s["no"]),{})).get("oc_no")==oc["no"]]
         basarilar = []
         if ogrenciler and anahtar:
             for s in oc_s:
@@ -479,7 +479,10 @@ elif st.session_state.step == 3:
             cur_z = esl.get("zorluk","Medium")
             zi = zorluklar.index(cur_z) if cur_z in zorluklar else 1
             sel_z = st.selectbox("diff", zorluklar, index=zi, label_visibility="collapsed", key=f"z_{s['no']}")
-        st.session_state.eslestirmeler[s["no"]] = {"oc_no": sel, "zorluk": sel_z}
+
+        # Sadece kullanıcı değiştirdiyse güncelle
+        if sel != cur or sel_z != cur_z:
+            st.session_state.eslestirmeler[s["no"]] = {"oc_no": sel, "zorluk": sel_z}
 
     st.markdown("---")
     pct = eslesen/len(st.session_state.sorular) if st.session_state.sorular else 0
