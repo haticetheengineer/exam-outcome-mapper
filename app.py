@@ -140,113 +140,80 @@ def t(key):
 
 # ── TEMA CSS ──────────────────────────────────────────────────
 def get_css(dark):
+    common = """
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+    html, body, [class*="css"] { font-family: 'Plus Jakarta Sans', sans-serif !important; }
+    .block-container { padding-top: 0.5rem !important; max-width: 780px !important; }
+    /* Streamlit üst header'ı gizle */
+    header[data-testid="stHeader"] { display: none !important; }
+    #MainMenu { display: none !important; }
+    footer { display: none !important; }
+    /* Butonlar */
+    .stButton > button { border-radius: 8px !important; font-weight: 600 !important; transition: all 0.2s !important; }
+    .stButton > button[kind="primary"] {
+        background: linear-gradient(135deg, #7c6af7, #6d28d9) !important;
+        border: none !important; color: white !important;
+        box-shadow: 0 4px 15px rgba(124,106,247,0.35) !important;
+    }
+    .stButton > button[kind="primary"]:hover { transform: translateY(-2px) !important; }
+    .stDownloadButton > button {
+        background: linear-gradient(135deg, #7c6af7, #6d28d9) !important;
+        color: white !important; border: none !important;
+        border-radius: 8px !important; font-weight: 600 !important;
+        box-shadow: 0 4px 15px rgba(124,106,247,0.35) !important;
+        width: 100% !important; padding: 12px !important;
+    }
+    /* App header */
+    .app-header {
+        padding: 28px 32px; border-radius: 16px;
+        margin-bottom: 28px; text-align: center;
+    }
+    .app-header h1 { margin:0; font-size:1.6rem; font-weight:800; letter-spacing:-0.5px; }
+    .app-header p  { margin:6px 0 0; font-size:0.82rem; }
+    /* Section title */
+    .section-title {
+        font-size:0.7rem; font-weight:700; letter-spacing:2.5px;
+        text-transform:uppercase; margin-bottom:14px;
+        display:flex; align-items:center; gap:10px;
+    }
+    .section-title::after { content:''; flex:1; height:1px; }
+    /* Tabs */
+    .stTabs [data-baseweb="tab-list"] { border-radius: 10px !important; padding: 4px !important; }
+    .stTabs [data-baseweb="tab"] { border-radius: 8px !important; }
+    </style>
+    """
+
     if dark:
-        return """
-        <style>
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
-        html, body, p, span, label, div, h1, h2, h3, h4, h5, li,
-        [class*="css"], .stMarkdown, .stText,
-        div[data-testid="stMarkdownContainer"],
-        div[data-testid="stMarkdownContainer"] p,
-        div[data-testid="stMarkdownContainer"] li {
-            font-family: 'Plus Jakarta Sans', sans-serif !important;
-            color: #e8eaf6 !important;
-        }
-        .stApp, section.main, div[data-testid="stAppViewContainer"],
-        div[data-testid="stMain"], .block-container {
-            background-color: #0f1117 !important;
-        }
-        .block-container { padding-top: 1rem !important; }
-        section[data-testid="stSidebar"],
-        section[data-testid="stSidebar"] > div {
-            background-color: #131620 !important;
-        }
-        section[data-testid="stSidebar"] p,
-        section[data-testid="stSidebar"] span,
-        section[data-testid="stSidebar"] label,
-        section[data-testid="stSidebar"] div { color: #c0c8e8 !important; }
-        .stTextInput input, .stTextArea textarea, .stNumberInput input {
-            background-color: #1e2130 !important;
-            color: #e8eaf6 !important;
-            border: 1px solid #3d4166 !important;
-            border-radius: 8px !important;
-        }
-        .stTextInput label, .stTextArea label, .stNumberInput label,
-        .stRadio label, .stSelectbox label, .stFileUploader label,
-        .stRadio div[role="radiogroup"] label { color: #a0aec0 !important; }
-        .stTabs [data-baseweb="tab-list"] { background-color: #1e2130 !important; border-radius: 10px !important; padding: 4px !important; }
-        .stTabs [data-baseweb="tab"] { color: #a0aec0 !important; border-radius: 8px !important; }
-        .stTabs [aria-selected="true"] { background-color: #2d3250 !important; color: #e8eaf6 !important; }
-        div[data-testid="stFileUploader"] { background-color: #1e2130 !important; border: 1.5px dashed #3d4166 !important; border-radius: 10px !important; }
-        div[data-testid="stFileUploader"] span, div[data-testid="stFileUploader"] p { color: #a0aec0 !important; }
-        details, .streamlit-expanderHeader, details summary {
-            background-color: #1e2130 !important; color: #e8eaf6 !important;
-        }
-        hr { border-color: #2d3250 !important; }
-        .app-header {
-            background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4c1d95 100%);
-            border: 1px solid #4338ca44; padding: 28px 32px; border-radius: 16px;
-            margin-bottom: 28px; text-align: center;
-            box-shadow: 0 8px 32px rgba(124,106,247,0.2);
-        }
-        .app-header h1 { color: #e0e7ff !important; margin:0; font-size:1.6rem; font-weight:800; letter-spacing:-0.5px; }
-        .app-header p  { color: #a5b4fc !important; margin:6px 0 0; font-size:0.82rem; }
-        .section-title {
-            font-size:0.72rem; font-weight:700; letter-spacing:2px;
-            text-transform:uppercase; color: #a78bfa !important;
-            margin-bottom:14px; display:flex; align-items:center; gap:8px;
-        }
-        .section-title::after { content:\'\'; flex:1; height:1px; background: #2d3250; }
-        .stButton > button { border-radius: 8px !important; font-weight: 600 !important; transition: all 0.2s !important; }
-        .stButton > button[kind="primary"] {
-            background: linear-gradient(135deg, #7c6af7, #6d28d9) !important;
-            border: none !important; color: white !important;
-            box-shadow: 0 4px 15px rgba(124,106,247,0.4) !important;
-        }
-        .stButton > button[kind="primary"]:hover { transform: translateY(-2px) !important; }
-        .stButton > button[kind="secondary"] {
-            background: #1e2130 !important; border: 1px solid #3d4166 !important; color: #e8eaf6 !important;
-        }
-        .stDownloadButton > button {
-            background: linear-gradient(135deg, #7c6af7, #6d28d9) !important;
-            color: white !important; border: none !important;
-            border-radius: 8px !important; font-weight: 600 !important;
-        }
-        </style>"""
+        theme = """
+    <style>
+    .app-header {
+        background: linear-gradient(135deg, #1e1b4b 0%, #312e81 60%, #4c1d95 100%);
+        box-shadow: 0 8px 32px rgba(124,106,247,0.25);
+        border: 1px solid rgba(124,106,247,0.2);
+    }
+    .app-header h1 { color: #e0e7ff !important; }
+    .app-header p  { color: #a5b4fc !important; }
+    .section-title { color: #a78bfa; }
+    .section-title::after { background: #2d3250; }
+    </style>
+    """
     else:
-        return """
-        <style>
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
-        html, body, [class*="css"] { font-family: 'Plus Jakarta Sans', sans-serif !important; }
-        .block-container { padding-top: 1rem !important; }
-        .app-header {
-            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #9333ea 100%);
-            padding: 28px 32px; border-radius: 16px; margin-bottom: 28px; text-align: center;
-            box-shadow: 0 8px 32px rgba(109,92,231,0.25);
-        }
-        .app-header h1 { margin:0; font-size:1.6rem; font-weight:800; color:white !important; letter-spacing:-0.5px; }
-        .app-header p  { margin:6px 0 0; font-size:0.82rem; color:rgba(255,255,255,0.75) !important; }
-        .section-title {
-            font-size:0.72rem; font-weight:700; letter-spacing:2px;
-            text-transform:uppercase; color: #6d5ce7;
-            margin-bottom:14px; display:flex; align-items:center; gap:8px;
-        }
-        .section-title::after { content:\'\'; flex:1; height:1px; background: #e2e0f0; }
-        .stButton > button { border-radius: 8px !important; font-weight: 600 !important; transition: all 0.2s !important; }
-        .stButton > button[kind="primary"] {
-            background: linear-gradient(135deg, #6d5ce7, #7c3aed) !important;
-            border: none !important; color: white !important;
-            box-shadow: 0 4px 15px rgba(109,92,231,0.35) !important;
-        }
-        .stButton > button[kind="primary"]:hover { transform: translateY(-2px) !important; }
-        .stTabs [data-baseweb="tab-list"] { background: #f1f0ff !important; border-radius: 10px !important; padding: 4px !important; }
-        .stTabs [aria-selected="true"] { background: white !important; box-shadow: 0 2px 8px rgba(0,0,0,0.08) !important; }
-        .stDownloadButton > button {
-            background: linear-gradient(135deg, #6d5ce7, #7c3aed) !important;
-            color: white !important; border: none !important;
-            border-radius: 8px !important; font-weight: 600 !important;
-        }
-        </style>"""
+        theme = """
+    <style>
+    .app-header {
+        background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 60%, #9333ea 100%);
+        box-shadow: 0 8px 32px rgba(109,92,231,0.28);
+    }
+    .app-header h1 { color: white !important; }
+    .app-header p  { color: rgba(255,255,255,0.8) !important; }
+    .section-title { color: #6d5ce7; }
+    .section-title::after { background: #e2e0f0; }
+    .stTabs [data-baseweb="tab-list"] { background: #f1f0ff !important; }
+    .stTabs [aria-selected="true"] { background: white !important; box-shadow: 0 2px 8px rgba(0,0,0,0.08) !important; }
+    </style>
+    """
+    return common + theme
 st.markdown(get_css(st.session_state.dark), unsafe_allow_html=True)
 
 # ── LOGIN ─────────────────────────────────────────────────────
