@@ -10,7 +10,7 @@ from openpyxl.utils import get_column_letter
 st.set_page_config(
     page_title="Exam Outcome Mapper",
     page_icon="📋",
-    layout="centered",
+    layout="wide",
     initial_sidebar_state="expanded"
 )
 
@@ -143,14 +143,15 @@ def get_css(dark):
     common = """
     <style>
     @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
-    html, body, button, input, textarea, select,
-    h1, h2, h3, h4, h5, h6, p, span, div, label, li, a,
-    [class*="css"], [class*="st-"], .stMarkdown,
+    /* Sadece metin içeriklerine monospace uygula, butonlara değil */
+    p, h1, h2, h3, h4, h5, h6, li, span.stMarkdown,
     div[data-testid="stMarkdownContainer"],
-    div[data-testid="stMarkdownContainer"] * {
+    div[data-testid="stMarkdownContainer"] *,
+    .stTextInput input, .stTextArea textarea,
+    .stNumberInput input, label {
         font-family: 'JetBrains Mono', monospace !important;
     }
-    .block-container { padding-top: 0.5rem !important; max-width: 780px !important; }
+    .block-container { padding-top: 0.5rem !important; max-width: 860px !important; padding-left: 2rem !important; padding-right: 2rem !important; }
     /* Streamlit üst header'ı gizle */
     header[data-testid="stHeader"] { display: none !important; }
     #MainMenu { display: none !important; }
@@ -158,21 +159,11 @@ def get_css(dark):
     /* File uploader fix */
     div[data-testid="stFileUploader"] label { display: none !important; }
     div[data-testid="stFileUploaderDropzone"] button {
-        font-family: 'JetBrains Mono', monospace !important;
+        font-family: sans-serif !important;
         font-size: 0.85rem !important;
-        width: 100% !important;
     }
-    div[data-testid="stFileUploaderDropzone"] {
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        padding: 20px !important;
-        border-radius: 10px !important;
-    }
-    /* Buton içindeki span'lar üst üste gelmesin */
-    div[data-testid="stFileUploaderDropzone"] button span {
-        position: static !important;
-        display: inline !important;
+    div[data-testid="stFileUploaderDropzone"] button p {
+        font-family: sans-serif !important;
     }
     /* Butonlar */
     .stButton > button { border-radius: 8px !important; font-weight: 600 !important; transition: all 0.2s !important; }
