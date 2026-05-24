@@ -839,6 +839,7 @@ def build_rubrik(sorular, ocler, eslestirmeler, puan_esit, toplam_puan, ozel_pua
     return buf.getvalue()
 
 
+def build_excel(sorular, ocler, eslestirmeler, anahtar, puan_esit, toplam_puan, ozel_puanlar):
     wb = Workbook()
     PURPLE="5B4FCF"; TEAL="0F766E"; GREEN_L="F0FDF4"
     GRAY="F8F7FF"; WHITE="FFFFFF"; DARK="1A1640"
