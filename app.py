@@ -367,19 +367,26 @@ def get_css(dark):
         color: #1a1640 !important;
     }
     /* File uploader - light mode */
+    div[data-testid="stFileUploader"],
     div[data-testid="stFileUploader"] > div,
-    div[data-testid="stFileUploaderDropzone"] {
+    div[data-testid="stFileUploader"] section,
+    div[data-testid="stFileUploaderDropzone"],
+    div[data-testid="stFileUploaderDropzone"] > div {
         background-color: #ffffff !important;
+        background: #ffffff !important;
         border: 1.5px dashed #c4b5fd !important;
         border-radius: 10px !important;
+        color: #1a1640 !important;
     }
     div[data-testid="stFileUploaderDropzone"] button {
         background-color: #7c6af7 !important;
         color: white !important;
         border-radius: 8px !important;
+        font-family: sans-serif !important;
     }
     div[data-testid="stFileUploaderDropzone"] small,
-    div[data-testid="stFileUploaderDropzone"] span {
+    div[data-testid="stFileUploaderDropzone"] span,
+    div[data-testid="stFileUploaderDropzone"] p {
         color: #6e6c8e !important;
     }
     </style>
