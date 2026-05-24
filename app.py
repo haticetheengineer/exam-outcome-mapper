@@ -859,7 +859,12 @@ def build_rubrik(sorular, ocler, eslestirmeler, puan_esit, toplam_puan, ozel_pua
         outcomes = esl.get("outcomes", [])
         bloom    = translate_bloom(esl.get("zorluk", ""))
         difficulty = translate_diff(esl.get("difficulty", ""))
-        oc_str   = ", ".join(f"{o['lo']}(%{o['pct']})" for o in outcomes) if outcomes else "—"
+        lo_prefix = "ÖÇ" if is_tr else "LO"
+        def _rename_lo(lo_str):
+            # Convert "LO-4" → "ÖÇ-4" (or keep "LO-4") based on language
+            import re as _re
+            return _re.sub(r'(?i)(LO|ÖÇ)[-–]?(\d+)', lambda m: f"{lo_prefix}-{m.group(2)}", lo_str)
+        oc_str   = ", ".join(f"{_rename_lo(o['lo'])}(%{o['pct']})" for o in outcomes) if outcomes else "—"
         puan     = get_puan(s["no"])
         bg       = "F5F4FF" if ri % 2 == 0 else "FFFFFF"
 
@@ -952,10 +957,11 @@ def build_excel(sorular, ocler, eslestirmeler, anahtar, puan_esit, toplam_puan, 
     ws1.title = "Question-LO Mapping"
     ws1.row_dimensions[1].height = 36
 
+    lo_prefix = "ÖÇ" if st.session_state.lang == "TR" else "LO"
     headers1 = ["Q NO", "SCORE", "QUESTION"]
     for i in range(max_oc):
-        headers1.append(f"DÇ Sıra {i+1}")
-        headers1.append(f"Etki Oran {i+1}")
+        headers1.append(f"{lo_prefix} Sıra {i+1}" if st.session_state.lang == "TR" else f"LO Rank {i+1}")
+        headers1.append(f"Etki Oran {i+1}" if st.session_state.lang == "TR" else f"Weight {i+1}")
     bloom_label = t("bloom_col")
     diff_label  = t("diff_col")
     headers1 += [bloom_label, diff_label, "ANSWER KEY"]
@@ -1009,7 +1015,12 @@ def build_excel(sorular, ocler, eslestirmeler, anahtar, puan_esit, toplam_puan, 
     # ─── SAYFA 2: LO Summary ────────────────────────────────
     ws2 = wb.create_sheet("LO Summary")
     ws2.row_dimensions[1].height = 36
-    for col, h in enumerate(["LO NO","LO DEFINITION","# QUESTIONS","QUESTION NUMBERS"],1):
+    is_tr_excel = st.session_state.lang == "TR"
+    lo_no_h  = "ÖÇ No"   if is_tr_excel else "LO NO"
+    lo_def_h = "ÖÇ Tanımı" if is_tr_excel else "LO DEFINITION"
+    q_cnt_h  = "Soru Sayısı" if is_tr_excel else "# QUESTIONS"
+    q_nos_h  = "Soru Numaraları" if is_tr_excel else "QUESTION NUMBERS"
+    for col, h in enumerate([lo_no_h, lo_def_h, q_cnt_h, q_nos_h], 1):
         hstyle(ws2.cell(row=1, column=col, value=h), bg=TEAL)
 
     for ri, oc in enumerate(ocler, 2):
@@ -1033,8 +1044,8 @@ def build_excel(sorular, ocler, eslestirmeler, anahtar, puan_esit, toplam_puan, 
 
     headers3 = ["Soru No", "Soru Puan", "Soru Metni"]
     for i in range(max_oc):
-        headers3.append(f"DÇ Sıra {i+1}")
-        headers3.append(f"Etki Oran {i+1}")
+        headers3.append(f"{lo_prefix} Sıra {i+1}" if st.session_state.lang == "TR" else f"LO Rank {i+1}")
+        headers3.append(f"Etki Oran {i+1}" if st.session_state.lang == "TR" else f"Weight {i+1}")
     headers3.append(t("bloom_col"))
     headers3.append(t("diff_col"))
 
