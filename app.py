@@ -366,10 +366,21 @@ def get_css(dark):
         background-color: #ffffff !important;
         color: #1a1640 !important;
     }
-    /* File uploader */
-    div[data-testid="stFileUploader"] > div {
+    /* File uploader - light mode */
+    div[data-testid="stFileUploader"] > div,
+    div[data-testid="stFileUploaderDropzone"] {
         background-color: #ffffff !important;
-        border-color: #d4d0f0 !important;
+        border: 1.5px dashed #c4b5fd !important;
+        border-radius: 10px !important;
+    }
+    div[data-testid="stFileUploaderDropzone"] button {
+        background-color: #7c6af7 !important;
+        color: white !important;
+        border-radius: 8px !important;
+    }
+    div[data-testid="stFileUploaderDropzone"] small,
+    div[data-testid="stFileUploaderDropzone"] span {
+        color: #6e6c8e !important;
     }
     </style>
     """
@@ -402,14 +413,15 @@ with st.sidebar:
     st.markdown("---")
 
     # Dil & Tema
-    c1, c2 = st.columns(2)
-    with c1:
-        lang = st.radio("🌐", ["TR","EN"], index=0 if st.session_state.lang=="TR" else 1, horizontal=True, label_visibility="collapsed")
+    lang_col, dark_col = st.columns([2, 1])
+    with lang_col:
+        lang = st.radio("🌐", ["TR","EN"], index=0 if st.session_state.lang=="TR" else 1,
+                       horizontal=True, label_visibility="collapsed")
         if lang != st.session_state.lang:
             st.session_state.lang = lang
             st.rerun()
-    with c2:
-        dark = st.toggle("🌙", value=st.session_state.dark)
+    with dark_col:
+        dark = st.toggle("🌙", value=st.session_state.dark, label_visibility="collapsed")
         if dark != st.session_state.dark:
             st.session_state.dark = dark
             st.rerun()
