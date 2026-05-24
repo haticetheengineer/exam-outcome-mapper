@@ -296,7 +296,14 @@ if uploaded_exam:
             sorular = extract_questions(text)
         elif ext in ["docx","doc"]:
             from docx import Document
-            text = "\n".join(p.text for p in Document(io.BytesIO(raw)).paragraphs)
+            doc = Document(io.BytesIO(raw))
+            # Paragrafları oku
+            text = "\n".join(p.text for p in doc.paragraphs)
+            # Tabloları da oku
+            for table in doc.tables:
+                for row in table.rows:
+                    for cell in row.cells:
+                        text += "\n" + cell.text
             sorular = extract_questions(text)
         elif ext == "pdf":
             import pypdf
