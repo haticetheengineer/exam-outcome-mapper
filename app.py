@@ -69,6 +69,9 @@ with st.sidebar:
     st.markdown("### 📋 Exam Outcome Mapper")
     st.markdown("---")
     st.markdown(f"👤 Logged in as **{st.secrets.get('APP_USERNAME','admin')}**")
+    if st.button("🔄 Start Over", use_container_width=True):
+        st.rerun()
+    st.markdown("---")
     if st.button("🚪 Logout", use_container_width=True):
         st.session_state.logged_in = False
         st.rerun()
@@ -90,16 +93,36 @@ def deepseek_chat(messages, max_tokens=4096):
 
 def extract_questions(text):
     sorular = []
-    pattern = r'(\d{1,3}[\.\)]\s*)([\s\S]*?\?)'
-    for idx, (_, soru) in enumerate(re.findall(pattern, text), 1):
+
+    # Format 1: Numaralı sorular "?" ile biter (normal döküman)
+    pattern1 = r'(\d{1,3}[\.\)]\s*)([\s\S]*?\?)'
+    for idx, (_, soru) in enumerate(re.findall(pattern1, text), 1):
         soru = re.sub(r'\s+', ' ', soru.strip())
         if len(soru) > 8:
             sorular.append({"no": idx, "text": soru})
-    if not sorular:
-        for idx, line in enumerate(text.split('\n'), 1):
-            line = line.strip()
-            if line.endswith('?') and len(line) > 8:
-                sorular.append({"no": idx, "text": line})
+    if sorular:
+        return sorular
+
+    # Format 2: "Soru X. soru metni" — tablo formatı
+    pattern2 = r'Soru\s+(\d+)\.\s+(.*?)(?=Soru\s+\d+\.|$)'
+    matches2 = re.findall(pattern2, text, re.DOTALL)
+    if matches2:
+        for no_str, metin in matches2:
+            metin = re.sub(r'\n\s*[A-E]\)\s.*', '', metin)
+            metin = re.sub(r'Cevap:.*', '', metin, flags=re.DOTALL)
+            metin = re.sub(r'\|', '', metin)
+            metin = re.sub(r'\s+', ' ', metin.strip())
+            if len(metin) > 8:
+                sorular.append({"no": int(no_str), "text": metin})
+        if sorular:
+            return sorular
+
+    # Format 3: Satır sonunda "?" olan satırlar
+    for idx, line in enumerate(text.split('\n'), 1):
+        line = line.strip()
+        if line.endswith('?') and len(line) > 8:
+            sorular.append({"no": idx, "text": line})
+
     return sorular
 
 def extract_oc_from_pdf(pdf_bytes):
@@ -262,7 +285,9 @@ st.markdown("### 📂 Step 1 — Upload Exam File")
 uploaded_exam = st.file_uploader("TXT, DOCX or PDF", type=["txt","pdf","docx","doc"], key="exam")
 
 sorular = []
+exam_filename = "Exam-Outcome-Report"
 if uploaded_exam:
+    exam_filename = uploaded_exam.name.rsplit(".", 1)[0]  # uzantısız isim
     ext = uploaded_exam.name.split(".")[-1].lower()
     raw = uploaded_exam.read()
     try:
@@ -358,7 +383,7 @@ else:
             st.download_button(
                 "⬇ Download Excel Report (.xlsx)",
                 excel_bytes,
-                "Exam-Outcome-Report.xlsx",
+                f"{exam_filename}-Outcome-Report.xlsx",
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 use_container_width=True,
                 type="primary"
