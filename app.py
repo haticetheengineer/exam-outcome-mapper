@@ -570,7 +570,7 @@ def auto_match(sorular, ocler):
     for ci, i in enumerate(range(0, n, 20)):
         chunk = sorular[i:i+20]
         soru_listesi = "\n".join([f"{s['no']}. {s['text']}" for s in chunk])
-        prompt = f"""You are an academic assessment expert. Match each exam question to learning outcomes.
+        prompt = f"""You are an academic assessment expert. Match each exam question to learning outcomes AND classify by Bloom's Taxonomy.
 
 LEARNING OUTCOMES:
 {oc_listesi}
@@ -583,13 +583,19 @@ STRICT RULES:
 - ONLY assign multiple outcomes if the question EXPLICITLY covers 2+ distinct topics from different outcomes
 - When in doubt, pick the SINGLE best matching outcome
 - Percentages must sum to exactly 100 for each question
-- Difficulty: Easy (recall/definition), Medium (understanding/application), Hard (analysis/evaluation)
-- Be CONSISTENT — similar questions should get the same outcome
+
+BLOOM'S TAXONOMY (pick exactly one):
+- Remember: recall facts, definitions, lists (e.g. "What is X?", "Which method does Y?")
+- Understand: explain, describe, summarize concepts (e.g. "Explain how X works")
+- Apply: use knowledge in new situations, solve problems (e.g. "Which code does X?")
+- Analyze: break down, compare, differentiate (e.g. "Compare X and Y", "Why does X cause Y?")
+- Evaluate: judge, critique, justify decisions (e.g. "Which approach is better and why?")
+- Create: design, build, formulate something new
 
 Return ONLY valid JSON, no explanation:
 {{"matches":[
-  {{"q":1,"outcomes":[{{"lo":"LO-3","pct":100}}],"difficulty":"Medium"}},
-  {{"q":2,"outcomes":[{{"lo":"LO-1","pct":60}},{{"lo":"LO-2","pct":40}}],"difficulty":"Easy"}}
+  {{"q":1,"outcomes":[{{"lo":"LO-3","pct":100}}],"bloom":"Remember"}},
+  {{"q":2,"outcomes":[{{"lo":"LO-1","pct":60}},{{"lo":"LO-2","pct":40}}],"bloom":"Understand"}}
 ]}}"""
         try:
             raw = deepseek_chat([{"role":"user","content":prompt}], max_tokens=2048)
@@ -600,9 +606,9 @@ Return ONLY valid JSON, no explanation:
                 for item in data.get("matches", []):
                     q_no = int(item.get("q", 0))
                     outcomes = item.get("outcomes", [])
-                    diff = str(item.get("difficulty", "Medium"))
+                    bloom = str(item.get("bloom", "Remember"))
                     if q_no > 0 and outcomes:
-                        result[q_no] = {"outcomes": outcomes, "zorluk": diff}
+                        result[q_no] = {"outcomes": outcomes, "zorluk": bloom}
         except Exception as e:
             st.warning(f"{t('batch')} {ci+1} error: {e}")
         progress.progress((ci+1)/chunks, text=f"{t('mapping')} ({ci+1}/{chunks})")
@@ -753,7 +759,7 @@ def build_rubrik(sorular, ocler, eslestirmeler, puan_esit, toplam_puan, ozel_pua
     rt.font.name = "Arial"
 
     # ── ANA TABLO ───────────────────────────────────────────
-    headers = ["Soru No", "Puan", "Doğru", "Yanlış", "Ölçülen Kazanım", "Ders Öğrenme Çıktısı", "Bloom Düzeyi"]
+    headers = ["Soru No", "Puan", "Doğru", "Yanlış", "Ölçülen Kazanım", "Ders Öğrenme Çıktısı", "Bloom Taksonomisi"]
     col_widths = [Cm(1.3), Cm(1.2), Cm(1.3), Cm(1.3), Cm(6.5), Cm(3.5), Cm(2.5)]
 
     t2 = doc.add_table(rows=1+len(sorular)+1, cols=len(headers))
@@ -875,7 +881,7 @@ def build_excel(sorular, ocler, eslestirmeler, anahtar, puan_esit, toplam_puan, 
     for i in range(max_oc):
         headers1.append(f"DÇ Sıra {i+1}")
         headers1.append(f"Etki Oran {i+1}")
-    headers1 += ["DIFFICULTY", "ANSWER KEY"]
+    headers1 += ["BLOOM TAKSONOMİSİ", "ANSWER KEY"]
 
     for col, h in enumerate(headers1, 1):
         hstyle(ws1.cell(row=1, column=col, value=h))
@@ -949,6 +955,7 @@ def build_excel(sorular, ocler, eslestirmeler, anahtar, puan_esit, toplam_puan, 
     for i in range(max_oc):
         headers3.append(f"DÇ Sıra {i+1}")
         headers3.append(f"Etki Oran {i+1}")
+    headers3.append("Bloom Taksonomisi")
 
     for col, h in enumerate(headers3, 1):
         hstyle(ws3.cell(row=1, column=col, value=h))
@@ -968,6 +975,11 @@ def build_excel(sorular, ocler, eslestirmeler, anahtar, puan_esit, toplam_puan, 
             cb = 4 + i*2
             ws3.cell(ri, cb,   lo_idx).alignment = Alignment(horizontal="center")
             ws3.cell(ri, cb+1, pct).alignment    = Alignment(horizontal="center")
+
+        # Bloom sütunu
+        bloom_col = 4 + max_oc*2 + 1
+        bloom_val = esl.get("zorluk", "")
+        ws3.cell(ri, bloom_col, bloom_val).alignment = Alignment(horizontal="center")
 
         if outcomes:
             for c in range(1, len(headers3)+1):
