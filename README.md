@@ -1,6 +1,7 @@
 # Sınav ÖÇ Eşleştirme Sistemi
 
 Akreditasyon raporu için sınav sorularını öğrenim çıktılarıyla eşleştiren web uygulaması.
+AI-powered tool to map exam questions to learning outcomes and generate accreditation reports. Built with Streamlit + DeepSeek API.
 
 ---
 
