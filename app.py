@@ -212,14 +212,14 @@ def build_excel(sorular, ocler, eslestirmeler, anahtar, puan_esit, toplam_puan, 
     ws1 = wb.active
     ws1.title = "Question-LO Mapping"
     ws1.row_dimensions[1].height = 32
-    for col, h in enumerate(["Q NO","QUESTION","ANSWER KEY","SCORE","LO NO","LO DEFINITION","DIFFICULTY"], 1):
+    for col, h in enumerate(["Q NO","QUESTION","ANSWER KEY","SCORE","LO NO","LO WEIGHT%","DIFFICULTY"], 1):
         hstyle(ws1.cell(row=1, column=col, value=h))
 
     for ri, s in enumerate(sorular, 2):
         esl = eslestirmeler.get(s["no"], {})
         outcomes = esl.get("outcomes", [])
-        lo_no = ", ".join(o["lo"] for o in outcomes) if outcomes else ""
-        lo_tanim = ", ".join(f"{o['lo']}({o['pct']}%)" for o in outcomes) if outcomes else ""
+        lo_no   = ", ".join(o["lo"] for o in outcomes) if outcomes else ""
+        lo_pct  = ", ".join(str(o["pct"])+"%" for o in outcomes) if outcomes else ""
         diff = esl.get("zorluk","")
         key = anahtar[s["no"]-1] if anahtar and s["no"]-1 < len(anahtar) else "-"
         puan = get_puan(s["no"])
@@ -228,8 +228,8 @@ def build_excel(sorular, ocler, eslestirmeler, anahtar, puan_esit, toplam_puan, 
         ws1.cell(ri,2,s["text"]).alignment = Alignment(wrap_text=True, vertical="top")
         ws1.cell(ri,3,key).alignment = Alignment(horizontal="center")
         ws1.cell(ri,4,puan).alignment = Alignment(horizontal="center")
-        ws1.cell(ri,5,lo_no).alignment = Alignment(horizontal="center", wrap_text=True)
-        ws1.cell(ri,6,lo_tanim).alignment = Alignment(wrap_text=True)
+        ws1.cell(ri,5,lo_no).alignment  = Alignment(horizontal="center", wrap_text=True)
+        ws1.cell(ri,6,lo_pct).alignment = Alignment(horizontal="center")
         ws1.cell(ri,7,diff).alignment = Alignment(horizontal="center")
 
         if outcomes:
@@ -295,7 +295,7 @@ def build_excel(sorular, ocler, eslestirmeler, anahtar, puan_esit, toplam_puan, 
         for i, outcome in enumerate(outcomes):
             lo_no = outcome.get("lo","")
             pct   = outcome.get("pct", 100)
-            lo_idx = oc_no_to_idx.get(lo_no, "")
+            lo_idx = oc_no_to_idx.get(lo_no, "")  # LO-4 → 4
             col_base = 4 + i*2
             ws3.cell(ri, col_base,   lo_idx).alignment = Alignment(horizontal="center")
             ws3.cell(ri, col_base+1, pct).alignment    = Alignment(horizontal="center")
