@@ -77,6 +77,12 @@ TR = {
     "oc_extracting": "ÖÇ'ler çıkarılıyor...",
     "mapping": "Eşleştirme yapılıyor...",
     "batch": "Batch",
+    "rubrik_info": "Rubrik Form Bilgileri",
+    "ogretim_elemani": "Öğretim Elemanı",
+    "sinav_turu": "Sınav Türü",
+    "bolum": "Bölüm / Program",
+    "sinav_tarihi": "Sınav Tarihi",
+    "download_rubrik": "Rubrik Form İndir (.docx)",
 }
 
 EN = {
@@ -132,6 +138,12 @@ EN = {
     "oc_extracting": "Extracting outcomes...",
     "mapping": "Mapping with AI...",
     "batch": "Batch",
+    "rubrik_info": "Rubric Form Info",
+    "ogretim_elemani": "Instructor",
+    "sinav_turu": "Exam Type",
+    "bolum": "Department / Program",
+    "sinav_tarihi": "Exam Date",
+    "download_rubrik": "Download Rubric Form (.docx)",
 }
 
 def t(key):
@@ -597,7 +609,236 @@ Return ONLY valid JSON:
     progress.empty()
     return result
 
-def build_excel(sorular, ocler, eslestirmeler, anahtar, puan_esit, toplam_puan, ozel_puanlar):
+def build_rubrik(sorular, ocler, eslestirmeler, puan_esit, toplam_puan, ozel_puanlar,
+                 ogretim_elemani="", bolum="", sinav_turu="", sinav_tarihi=""):
+    from docx import Document as DocxDoc
+    from docx.shared import Pt, RGBColor, Cm
+    from docx.oxml.ns import qn
+    from docx.oxml import OxmlElement
+    from docx.enum.text import WD_ALIGN_PARAGRAPH
+    from docx.enum.table import WD_TABLE_ALIGNMENT, WD_ALIGN_VERTICAL
+
+    KOYU_MOR = RGBColor(0x3B, 0x1F, 0x8C)
+    MOR      = RGBColor(0x6D, 0x5C, 0xE7)
+    BEYAZ    = RGBColor(0xFF, 0xFF, 0xFF)
+    GRI_YAZ  = RGBColor(0x4A, 0x4A, 0x6A)
+
+    def set_cell_bg(cell, hex_color):
+        tc   = cell._tc
+        tcPr = tc.get_or_add_tcPr()
+        shd  = OxmlElement('w:shd')
+        shd.set(qn('w:val'),   'clear')
+        shd.set(qn('w:color'), 'auto')
+        shd.set(qn('w:fill'),  hex_color)
+        tcPr.append(shd)
+
+    def set_cell_border(cell, color="C4B5FD"):
+        tc   = cell._tc
+        tcPr = tc.get_or_add_tcPr()
+        tcBorders = OxmlElement('w:tcBorders')
+        for side in ['top','left','bottom','right']:
+            border = OxmlElement(f'w:{side}')
+            border.set(qn('w:val'),   'single')
+            border.set(qn('w:sz'),    '4')
+            border.set(qn('w:color'), color)
+            tcBorders.append(border)
+        tcPr.append(tcBorders)
+
+    def get_puan(no):
+        if puan_esit:
+            return round(toplam_puan / len(sorular), 1)
+        return ozel_puanlar.get(no, round(toplam_puan / len(sorular), 1))
+
+    oc_map = {o["no"]: o["tanim"] for o in ocler}
+
+    doc = DocxDoc()
+
+    # Sayfa marjinleri
+    for section in doc.sections:
+        section.top_margin    = Cm(1.5)
+        section.bottom_margin = Cm(1.5)
+        section.left_margin   = Cm(1.8)
+        section.right_margin  = Cm(1.8)
+
+    # ── BAŞLIK TABLOSU ─────────────────────────────────────
+    t0 = doc.add_table(rows=1, cols=1)
+    t0.alignment = WD_TABLE_ALIGNMENT.CENTER
+    t0.style = 'Table Grid'
+    c00 = t0.cell(0,0)
+    set_cell_bg(c00, "3B1F8C")
+    set_cell_border(c00)
+    p0 = c00.paragraphs[0]
+    p0.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p0.paragraph_format.space_before = Pt(8)
+    p0.paragraph_format.space_after  = Pt(4)
+    r0 = p0.add_run("SINAV RUBRİK FORMU")
+    r0.bold      = True
+    r0.font.size = Pt(16)
+    r0.font.color.rgb = BEYAZ
+    r0.font.name = "Arial"
+    p0b = c00.add_paragraph("Kapadokya Üniversitesi")
+    p0b.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p0b.paragraph_format.space_after = Pt(6)
+    rb = p0b.add_run()
+    rb.font.size  = Pt(10)
+    rb.font.color.rgb = RGBColor(0xC4, 0xB5, 0xFD)
+    rb.font.name = "Arial"
+    # fix: remove empty run
+    p0b.runs[0].text = "Kapadokya Üniversitesi"
+
+    doc.add_paragraph()
+
+    # ── BİLGİ TABLOSU ──────────────────────────────────────
+    t1 = doc.add_table(rows=3, cols=2)
+    t1.alignment = WD_TABLE_ALIGNMENT.CENTER
+    t1.style = 'Table Grid'
+
+    info = [
+        [("Öğretim Elemanı:", ogretim_elemani or "—"), ("Bölüm/Program:", bolum or "—")],
+        [("Dersin Adı:", exam_filename if 'exam_filename' in dir() else "—"), ("Sınav Türü:", sinav_turu or "—")],
+        [("Sınav Tarihi:", sinav_tarihi or "—"), ("Doküman No:", "DKM.FR.033")],
+    ]
+
+    for ri, row in enumerate(info):
+        bg = "EDE9FE" if ri % 2 == 0 else "FFFFFF"
+        for ci, (label, value) in enumerate(row):
+            cell = t1.cell(ri, ci)
+            set_cell_bg(cell, bg)
+            set_cell_border(cell)
+            p = cell.paragraphs[0]
+            p.paragraph_format.space_before = Pt(3)
+            p.paragraph_format.space_after  = Pt(3)
+            rl = p.add_run(label + " ")
+            rl.bold = True
+            rl.font.size = Pt(10)
+            rl.font.color.rgb = KOYU_MOR
+            rl.font.name = "Arial"
+            rv = p.add_run(value)
+            rv.font.size = Pt(10)
+            rv.font.color.rgb = GRI_YAZ
+            rv.font.name = "Arial"
+
+    doc.add_paragraph()
+
+    # ── ÖÇ LİSTESİ ─────────────────────────────────────────
+    ph = doc.add_paragraph()
+    ph.paragraph_format.space_before = Pt(4)
+    ph.paragraph_format.space_after  = Pt(4)
+    rh = ph.add_run("Dersin Öğrenme Çıktıları")
+    rh.bold = True
+    rh.font.size = Pt(11)
+    rh.font.color.rgb = KOYU_MOR
+    rh.font.name = "Arial"
+
+    for oc in ocler:
+        po = doc.add_paragraph(style='List Number')
+        po.paragraph_format.space_before = Pt(2)
+        po.paragraph_format.space_after  = Pt(2)
+        ro = po.add_run(oc["tanim"])
+        ro.font.size = Pt(10)
+        ro.font.color.rgb = GRI_YAZ
+        ro.font.name = "Arial"
+
+    doc.add_paragraph()
+
+    # ── TABLO BAŞLIĞI ───────────────────────────────────────
+    pt = doc.add_paragraph()
+    pt.paragraph_format.space_before = Pt(6)
+    pt.paragraph_format.space_after  = Pt(4)
+    rt = pt.add_run("Tablo-1. Çoktan Seçmeli Sorular İçin Dereceli Puanlama Anahtarı")
+    rt.bold = True
+    rt.font.size = Pt(11)
+    rt.font.color.rgb = KOYU_MOR
+    rt.font.name = "Arial"
+
+    # ── ANA TABLO ───────────────────────────────────────────
+    headers = ["Soru No", "Puan", "Doğru", "Yanlış", "Ölçülen Kazanım", "Ders Öğrenme Çıktısı", "Bloom Düzeyi"]
+    col_widths = [Cm(1.3), Cm(1.2), Cm(1.3), Cm(1.3), Cm(6.5), Cm(3.5), Cm(2.5)]
+
+    t2 = doc.add_table(rows=1+len(sorular)+1, cols=len(headers))
+    t2.alignment = WD_TABLE_ALIGNMENT.CENTER
+    t2.style = 'Table Grid'
+
+    # Header satırı
+    for ci, (htext, cw) in enumerate(zip(headers, col_widths)):
+        cell = t2.cell(0, ci)
+        cell.width = cw
+        set_cell_bg(cell, "3B1F8C")
+        set_cell_border(cell)
+        p = cell.paragraphs[0]
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        p.paragraph_format.space_before = Pt(3)
+        p.paragraph_format.space_after  = Pt(3)
+        r = p.add_run(htext)
+        r.bold = True
+        r.font.size = Pt(9)
+        r.font.color.rgb = BEYAZ
+        r.font.name = "Arial"
+
+    # Soru satırları
+    for ri, s in enumerate(sorular):
+        esl      = eslestirmeler.get(s["no"], {})
+        outcomes = esl.get("outcomes", [])
+        bloom    = esl.get("zorluk", "")
+        oc_str   = ", ".join(f"{o['lo']}(%{o['pct']})" for o in outcomes) if outcomes else "—"
+        puan     = get_puan(s["no"])
+        bg       = "F5F4FF" if ri % 2 == 0 else "FFFFFF"
+
+        row_data = [
+            (str(s["no"]), WD_ALIGN_PARAGRAPH.CENTER),
+            (str(puan),    WD_ALIGN_PARAGRAPH.CENTER),
+            ("4",          WD_ALIGN_PARAGRAPH.CENTER),
+            ("0",          WD_ALIGN_PARAGRAPH.CENTER),
+            (s["text"],    WD_ALIGN_PARAGRAPH.LEFT),
+            (oc_str,       WD_ALIGN_PARAGRAPH.CENTER),
+            (bloom,        WD_ALIGN_PARAGRAPH.CENTER),
+        ]
+
+        for ci, (txt, align) in enumerate(row_data):
+            cell = t2.cell(ri+1, ci)
+            set_cell_bg(cell, bg)
+            set_cell_border(cell)
+            p = cell.paragraphs[0]
+            p.alignment = align
+            p.paragraph_format.space_before = Pt(2)
+            p.paragraph_format.space_after  = Pt(2)
+            r = p.add_run(txt)
+            r.font.size = Pt(9)
+            r.font.color.rgb = GRI_YAZ
+            r.font.name = "Arial"
+
+    # Toplam satırı
+    last_row = len(sorular) + 1
+    for ci in range(len(headers)):
+        cell = t2.cell(last_row, ci)
+        set_cell_bg(cell, "3B1F8C")
+        set_cell_border(cell)
+        p = cell.paragraphs[0]
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        p.paragraph_format.space_before = Pt(3)
+        p.paragraph_format.space_after  = Pt(3)
+        text = "TOPLAM" if ci == 0 else (str(toplam_puan) if ci == 1 else "0" if ci == 3 else "")
+        r = p.add_run(text)
+        r.bold = True
+        r.font.size = Pt(9)
+        r.font.color.rgb = BEYAZ
+        r.font.name = "Arial"
+
+    # ── DİPNOT ─────────────────────────────────────────────
+    pd = doc.add_paragraph()
+    pd.paragraph_format.space_before = Pt(8)
+    rd = pd.add_run("* Yanıt biçimi istenildiği takdirde alt detaylara bölünerek çoğaltılabilir.")
+    rd.italic = True
+    rd.font.size = Pt(9)
+    rd.font.color.rgb = GRI_YAZ
+    rd.font.name = "Arial"
+
+    buf = io.BytesIO()
+    doc.save(buf)
+    buf.seek(0)
+    return buf.getvalue()
+
+
     wb = Workbook()
     PURPLE="5B4FCF"; TEAL="0F766E"; GREEN_L="F0FDF4"
     GRAY="F8F7FF"; WHITE="FFFFFF"; DARK="1A1640"
@@ -870,7 +1111,17 @@ with st.expander(t("answer_key")):
 
 st.divider()
 
-# ADIM 5: Rapor
+# RUBRİK BİLGİLERİ
+st.markdown(f"<div class='section-title'>📋 {t('rubrik_info')}</div>", unsafe_allow_html=True)
+rcol1, rcol2 = st.columns(2)
+with rcol1:
+    ogretim_elemani = st.text_input(t("ogretim_elemani"), placeholder="Öğr. Gör. Ad Soyad")
+    sinav_turu      = st.text_input(t("sinav_turu"), placeholder="Vize / Final / Quiz")
+with rcol2:
+    bolum_rubrik   = st.text_input(t("bolum"), placeholder="Bilgisayar Programcılığı")
+    sinav_tarihi   = st.text_input(t("sinav_tarihi"), placeholder="01/01/2026")
+
+st.divider()
 st.markdown(f"<div class='section-title'>{t('step4')}</div>", unsafe_allow_html=True)
 
 ready = bool(sorular) and bool(ocler)
@@ -891,12 +1142,27 @@ else:
             multi  = sum(1 for v in eslestirmeler.values() if len(v.get("outcomes",[])) > 1)
             st.success(f"✅ {mapped}/{len(sorular)} {t('mapped_ok')} — {multi} {t('multi_match')}")
 
-            excel_bytes = build_excel(sorular, ocler, eslestirmeler, anahtar, puan_esit, toplam_puan, ozel_puanlar)
-            st.download_button(
-                t("download"), excel_bytes,
-                f"{exam_filename}-Outcome-Report.xlsx",
-                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True, type="primary"
-            )
+            col1, col2 = st.columns(2)
+            with col1:
+                excel_bytes = build_excel(sorular, ocler, eslestirmeler, anahtar, puan_esit, toplam_puan, ozel_puanlar)
+                st.download_button(
+                    t("download"), excel_bytes,
+                    f"{exam_filename}-Outcome-Report.xlsx",
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True, type="primary"
+                )
+            with col2:
+                rubrik_bytes = build_rubrik(
+                    sorular, ocler, eslestirmeler,
+                    puan_esit, toplam_puan, ozel_puanlar,
+                    ogretim_elemani, bolum_rubrik, sinav_turu, sinav_tarihi
+                )
+                st.download_button(
+                    "📄 " + t("download_rubrik"),
+                    rubrik_bytes,
+                    f"{exam_filename}-Rubrik.docx",
+                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    use_container_width=True
+                )
         except Exception as e:
             st.error(f"❌ {e}")
