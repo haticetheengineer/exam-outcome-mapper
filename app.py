@@ -571,7 +571,6 @@ def auto_match(sorular, ocler):
         chunk = sorular[i:i+20]
         soru_listesi = "\n".join([f"{s['no']}. {s['text']}" for s in chunk])
         prompt = f"""You are an academic assessment expert. Match each exam question to learning outcomes.
-A question CAN match multiple outcomes if it covers multiple topics.
 
 LEARNING OUTCOMES:
 {oc_listesi}
@@ -579,13 +578,15 @@ LEARNING OUTCOMES:
 EXAM QUESTIONS:
 {soru_listesi}
 
-Rules:
-- Match to 1 outcome if clearly focused on one topic
-- Match to 2-3 outcomes if the question spans multiple topics
-- Percentages must sum to 100 for each question
-- Assign difficulty: Easy, Medium, Hard
+STRICT RULES:
+- Match EACH question to EXACTLY ONE outcome (single match, 100%)
+- ONLY assign multiple outcomes if the question EXPLICITLY covers 2+ distinct topics from different outcomes
+- When in doubt, pick the SINGLE best matching outcome
+- Percentages must sum to exactly 100 for each question
+- Difficulty: Easy (recall/definition), Medium (understanding/application), Hard (analysis/evaluation)
+- Be CONSISTENT — similar questions should get the same outcome
 
-Return ONLY valid JSON:
+Return ONLY valid JSON, no explanation:
 {{"matches":[
   {{"q":1,"outcomes":[{{"lo":"LO-3","pct":100}}],"difficulty":"Medium"}},
   {{"q":2,"outcomes":[{{"lo":"LO-1","pct":60}},{{"lo":"LO-2","pct":40}}],"difficulty":"Easy"}}
@@ -1138,32 +1139,70 @@ else:
 
     if st.button(t("map_btn"), type="primary", use_container_width=True):
         try:
-            eslestirmeler = auto_match(sorular, ocler)
+            with st.spinner(t("mapping")):
+                eslestirmeler = auto_match(sorular, ocler)
             mapped = sum(1 for v in eslestirmeler.values() if v.get("outcomes"))
             multi  = sum(1 for v in eslestirmeler.values() if len(v.get("outcomes",[])) > 1)
-            st.success(f"✅ {mapped}/{len(sorular)} {t('mapped_ok')} — {multi} {t('multi_match')}")
 
-            col1, col2 = st.columns(2)
-            with col1:
-                excel_bytes = build_excel(sorular, ocler, eslestirmeler, anahtar, puan_esit, toplam_puan, ozel_puanlar)
-                st.download_button(
-                    t("download"), excel_bytes,
-                    f"{exam_filename}-Outcome-Report.xlsx",
-                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    use_container_width=True, type="primary"
-                )
-            with col2:
-                rubrik_bytes = build_rubrik(
-                    sorular, ocler, eslestirmeler,
-                    puan_esit, toplam_puan, ozel_puanlar,
-                    ogretim_elemani, bolum_rubrik, sinav_turu, sinav_tarihi
-                )
-                st.download_button(
-                    "📄 " + t("download_rubrik"),
-                    rubrik_bytes,
-                    f"{exam_filename}-Rubrik.docx",
-                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                    use_container_width=True
-                )
+            # Session state'e kaydet — butonlar kaybolmasın
+            st.session_state["son_eslestirmeler"]  = eslestirmeler
+            st.session_state["son_sorular"]        = sorular
+            st.session_state["son_ocler"]          = ocler
+            st.session_state["son_anahtar"]        = anahtar
+            st.session_state["son_puan_esit"]      = puan_esit
+            st.session_state["son_toplam_puan"]    = toplam_puan
+            st.session_state["son_ozel_puanlar"]   = ozel_puanlar
+            st.session_state["son_exam_filename"]  = exam_filename
+            st.session_state["son_ogretim"]        = ogretim_elemani
+            st.session_state["son_bolum"]          = bolum_rubrik
+            st.session_state["son_sinav_turu"]     = sinav_turu
+            st.session_state["son_sinav_tarihi"]   = sinav_tarihi
+            st.session_state["son_mapped"]         = mapped
+            st.session_state["son_multi"]          = multi
+            st.rerun()
         except Exception as e:
             st.error(f"❌ {e}")
+
+    # Sonuçlar session state'te varsa her zaman göster
+    if "son_eslestirmeler" in st.session_state and st.session_state["son_sorular"] == sorular:
+        esl_  = st.session_state["son_eslestirmeler"]
+        sor_  = st.session_state["son_sorular"]
+        oc_   = st.session_state["son_ocler"]
+        fn_   = st.session_state["son_exam_filename"]
+
+        st.success(f"✅ {st.session_state['son_mapped']}/{len(sor_)} {t('mapped_ok')} — {st.session_state['son_multi']} {t('multi_match')}")
+
+        col1, col2 = st.columns(2)
+        with col1:
+            excel_bytes = build_excel(
+                sor_, oc_, esl_,
+                st.session_state["son_anahtar"],
+                st.session_state["son_puan_esit"],
+                st.session_state["son_toplam_puan"],
+                st.session_state["son_ozel_puanlar"]
+            )
+            st.download_button(
+                t("download"), excel_bytes,
+                f"{fn_}-Outcome-Report.xlsx",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True, type="primary",
+                key="dl_excel"
+            )
+        with col2:
+            rubrik_bytes = build_rubrik(
+                sor_, oc_, esl_,
+                st.session_state["son_puan_esit"],
+                st.session_state["son_toplam_puan"],
+                st.session_state["son_ozel_puanlar"],
+                st.session_state["son_ogretim"],
+                st.session_state["son_bolum"],
+                st.session_state["son_sinav_turu"],
+                st.session_state["son_sinav_tarihi"]
+            )
+            st.download_button(
+                "📄 " + t("download_rubrik"), rubrik_bytes,
+                f"{fn_}-Rubrik.docx",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                use_container_width=True,
+                key="dl_rubrik"
+            )
