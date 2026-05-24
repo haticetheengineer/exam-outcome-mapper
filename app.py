@@ -248,9 +248,21 @@ def get_css(dark):
     /* Tab listesi */
     div[data-baseweb="tab-list"] {
         background-color: #1e2130 !important;
+        border-radius: 10px !important;
+        padding: 4px !important;
+        gap: 4px !important;
+    }
+    div[data-baseweb="tab"] {
+        white-space: nowrap !important;
+        min-width: fit-content !important;
+        padding: 6px 16px !important;
+        border-radius: 8px !important;
+        color: #a0aec0 !important;
     }
     div[data-baseweb="tab"][aria-selected="true"] {
         background-color: #2d3250 !important;
+        color: #e8eaf6 !important;
+        font-weight: 600 !important;
     }
     /* Radio */
     div[data-testid="stRadio"] > div { color: #e8eaf6 !important; }
@@ -275,6 +287,14 @@ def get_css(dark):
     else:
         theme = """
     <style>
+    /* Light mode arka plan */
+    .stApp, section.main, div[data-testid="stAppViewContainer"],
+    div[data-testid="stMain"] {
+        background-color: #f5f4ff !important;
+    }
+    section[data-testid="stSidebar"] > div:first-child {
+        background-color: #ffffff !important;
+    }
     .app-header {
         background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 60%, #9333ea 100%);
         box-shadow: 0 8px 32px rgba(109,92,231,0.28);
@@ -283,8 +303,25 @@ def get_css(dark):
     .app-header p  { color: rgba(255,255,255,0.8) !important; }
     .section-title { color: #6d5ce7; }
     .section-title::after { background: #e2e0f0; }
-    .stTabs [data-baseweb="tab-list"] { background: #f1f0ff !important; }
-    .stTabs [aria-selected="true"] { background: white !important; box-shadow: 0 2px 8px rgba(0,0,0,0.08) !important; }
+    /* Tab tam görünsün */
+    .stTabs [data-baseweb="tab-list"] {
+        background: #ede9fe !important;
+        border-radius: 10px !important;
+        padding: 4px !important;
+        gap: 4px !important;
+    }
+    .stTabs [data-baseweb="tab"] {
+        white-space: nowrap !important;
+        min-width: fit-content !important;
+        padding: 6px 16px !important;
+        border-radius: 8px !important;
+    }
+    .stTabs [aria-selected="true"] {
+        background: white !important;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08) !important;
+        color: #6d5ce7 !important;
+        font-weight: 600 !important;
+    }
     </style>
     """
     return common + theme
