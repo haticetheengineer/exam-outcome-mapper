@@ -24,11 +24,17 @@ html, body, [class*="css"] { font-family: 'IBM Plex Sans', sans-serif; }
     border-left: 4px solid #1a3a6b; border-radius: 8px;
     padding: 12px 14px; margin-bottom: 10px;
 }
+.soru-card.matched { border-left-color: #1e6b3a; background: #f0fdf4; }
 .soru-no { color: #c0392b; font-weight: 700; font-size: 0.85rem; }
 .soru-text { font-size: 0.88rem; line-height: 1.5; margin-top: 4px; }
 .oc-badge {
     background: #1a3a6b; color: white; padding: 2px 10px;
     border-radius: 12px; font-size: 0.72rem; font-weight: 600;
+}
+.auto-banner {
+    background: #fffbeb; border: 1px solid #fcd34d;
+    border-radius: 8px; padding: 12px 16px;
+    font-size: 0.82rem; color: #92400e; margin-bottom: 14px;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -78,6 +84,45 @@ def deepseek_vision(img_bytes: bytes, mime: str, prompt: str) -> str:
     resp.raise_for_status()
     return resp.json()["choices"][0]["message"]["content"].strip()
 
+# ── OTOMATİK EŞLEŞTİRME ──────────────────────────────────────
+def auto_match(sorular: list, ocler: list) -> dict:
+    """DeepSeek ile her soruyu en uygun ÖÇ ile eşleştir"""
+    oc_listesi = "\n".join([f"- {o['no']}: {o['tanim']}" for o in ocler])
+    soru_listesi = "\n".join([f"{s['no']}. {s['text']}" for s in sorular])
+
+    prompt = f"""Asagida ogrenım ciktilari (OC) ve sinav sorulari var.
+Her soruyu en uygun OC ile eslestirir misin?
+
+OGRENIM CIKTILARI:
+{oc_listesi}
+
+SINAV SORULARI:
+{soru_listesi}
+
+Her soru icin:
+- En uygun OC'yi sec
+- Zorluk seviyesini belirle (Easy, Medium, Hard)
+
+SADECE JSON dondur, baska hicbir sey yazma:
+{{
+  "eslestirmeler": [
+    {{"soru_no": 1, "oc_no": "LO-1", "zorluk": "Medium"}},
+    {{"soru_no": 2, "oc_no": "LO-2", "zorluk": "Easy"}}
+  ]
+}}"""
+
+    raw = deepseek_chat([{"role": "user", "content": prompt}], max_tokens=4096)
+    raw = re.sub(r'```json|```', '', raw).strip()
+    data = json.loads(raw)
+
+    result = {}
+    for item in data.get("eslestirmeler", []):
+        result[item["soru_no"]] = {
+            "oc_no": item.get("oc_no", ""),
+            "zorluk": item.get("zorluk", "Medium")
+        }
+    return result
+
 # ── YARDIMCI ─────────────────────────────────────────────────
 def parse_text(text: str) -> list:
     sorular = []
@@ -96,7 +141,7 @@ def parse_text(text: str) -> list:
 
 def parse_via_deepseek(text: str) -> list:
     prompt = f"""Asagidaki sinav metninden "?" ile biten TUM sorulari cikar.
-SADECE JSON dondur, baska hicbir sey yazma:
+SADECE JSON dondur:
 {{"sorular":[{{"no":1,"text":"Soru metni?"}},{{"no":2,"text":"..."}}]}}
 
 METIN:
@@ -106,9 +151,9 @@ METIN:
     return json.loads(raw).get("sorular", [])
 
 def read_oc_from_image(img_bytes: bytes, mime: str) -> list:
-    prompt = """Bu resimde ogrenim ciktilari (OC) listesi var.
+    prompt = """Bu resimde ogrenim ciktilari listesi var.
 Tum OC'leri cikar. SADECE JSON dondur:
-{"ocler":[{"no":"OC-1","tanim":"..."},{"no":"OC-2","tanim":"..."}]}"""
+{"ocler":[{"no":"LO-1","tanim":"..."},{"no":"LO-2","tanim":"..."}]}"""
     raw = deepseek_vision(img_bytes, mime, prompt)
     raw = re.sub(r'```json|```', '', raw).strip()
     return json.loads(raw).get("ocler", [])
@@ -129,18 +174,17 @@ def build_excel(sorular, ocler, eslestirmeler, ogrenciler, anahtar) -> bytes:
             for cell in row:
                 cell.border = Border(left=t, right=t, top=t, bottom=t)
 
-    # SAYFA 1: Soru-OC
     ws1 = wb.active
-    ws1.title = "Soru-OC Eslestirme"
+    ws1.title = "Question-LO Mapping"
     ws1.row_dimensions[1].height = 32
-    for col, h in enumerate(["SORU NO","SORU METNI","DOGRU CEVAP","OC NO","OC TANIMI","ZORLUK","BASARI %"], 1):
+    for col, h in enumerate(["Q NO","QUESTION","ANSWER KEY","LO NO","LO DEFINITION","DIFFICULTY","SUCCESS %"], 1):
         hstyle(ws1.cell(row=1, column=col, value=h))
 
     oc_map = {o["no"]: o["tanim"] for o in ocler}
     for ri, s in enumerate(sorular, 2):
         esl    = eslestirmeler.get(s["no"], {})
         oc_no  = esl.get("oc_no", "")
-        zorluk = esl.get("zorluk", "Orta")
+        zorluk = esl.get("zorluk", "Medium")
         dogru  = anahtar[s["no"]-1] if anahtar and s["no"]-1 < len(anahtar) else "-"
         basari = None
         if ogrenciler and anahtar and s["no"]-1 < len(anahtar):
@@ -168,10 +212,9 @@ def build_excel(sorular, ocler, eslestirmeler, ogrenciler, anahtar) -> bytes:
     ws1.freeze_panes = "A2"
     borders(ws1, 1, len(sorular)+1, 1, 7)
 
-    # SAYFA 2: OC Ozet
-    ws2 = wb.create_sheet("OC Ozet")
+    ws2 = wb.create_sheet("LO Summary")
     ws2.row_dimensions[1].height = 32
-    for col, h in enumerate(["OC NO","OC TANIMI","SORU SAYISI","ORT. BASARI %","DEGERLENDIRME"],1):
+    for col, h in enumerate(["LO NO","LO DEFINITION","# QUESTIONS","AVG SUCCESS %","EVALUATION"],1):
         hstyle(ws2.cell(row=1, column=col, value=h))
 
     for ri, oc in enumerate(ocler, 2):
@@ -184,7 +227,7 @@ def build_excel(sorular, ocler, eslestirmeler, ogrenciler, anahtar) -> bytes:
                     cnt = sum(1 for o in ogrenciler if len(o["cevaplar"])>s["no"]-1 and o["cevaplar"][s["no"]-1]==dogru)
                     basarilar.append(cnt/len(ogrenciler))
         ort = sum(basarilar)/len(basarilar) if basarilar else None
-        durum = ("Yeterli" if ort>=0.6 else "Gelistirilmeli") if ort is not None else ""
+        durum = ("Sufficient" if ort>=0.6 else "Needs Improvement") if ort is not None else ""
 
         ws2.cell(ri,1,oc["no"]).alignment = Alignment(horizontal="center")
         ws2.cell(ri,2,oc["tanim"]).alignment = Alignment(wrap_text=True)
@@ -205,11 +248,10 @@ def build_excel(sorular, ocler, eslestirmeler, ogrenciler, anahtar) -> bytes:
     ws2.freeze_panes = "A2"
     borders(ws2, 1, len(ocler)+1, 1, 5)
 
-    # SAYFA 3: Ogrenci
     if ogrenciler:
-        ws3 = wb.create_sheet("Ogrenci Sonuclari")
+        ws3 = wb.create_sheet("Student Results")
         ws3.row_dimensions[1].height = 32
-        for col, h in enumerate(["AD SOYAD","OGRENCI NO","CEVAPLAR","DOGRU SAYISI","PUAN %"],1):
+        for col, h in enumerate(["NAME","STUDENT ID","ANSWERS","CORRECT","SCORE %"],1):
             hstyle(ws3.cell(row=1, column=col, value=h))
         for ri, o in enumerate(ogrenciler, 2):
             dogru_say = sum(1 for i,d in enumerate(anahtar) if i < len(o["cevaplar"]) and o["cevaplar"][i]==d) if anahtar else 0
@@ -274,7 +316,6 @@ if st.session_state.step == 1:
                     sorular = parse_text(text)
                     if not sorular:
                         sorular = parse_via_deepseek(text)
-
                 elif ext in ["docx","doc"]:
                     from docx import Document
                     doc = Document(io.BytesIO(raw_bytes))
@@ -282,7 +323,6 @@ if st.session_state.step == 1:
                     sorular = parse_text(text)
                     if not sorular:
                         sorular = parse_via_deepseek(text)
-
                 elif ext == "pdf":
                     import pypdf
                     reader = pypdf.PdfReader(io.BytesIO(raw_bytes))
@@ -296,7 +336,7 @@ if st.session_state.step == 1:
                 else:
                     st.session_state.sorular = sorular
                     st.success(f"✅ **{len(sorular)} questions** extracted successfully!")
-                    with st.expander(f"Preview questions ({len(sorular)})", expanded=False):
+                    with st.expander(f"Preview ({len(sorular)} questions)", expanded=False):
                         for s in sorular:
                             st.markdown(f"**{s['no']}.** {s['text']}")
                     if st.button("Continue → Define Outcomes", type="primary", use_container_width=True):
@@ -367,9 +407,29 @@ elif st.session_state.step == 2:
 elif st.session_state.step == 3:
     st.markdown("""<div class='step-header'>
         <h2>🔗 Step 3 — Map Questions to Outcomes</h2>
-        <p>Assign a learning outcome and difficulty to each question</p>
+        <p>Auto-map with AI or assign manually</p>
     </div>""", unsafe_allow_html=True)
 
+    # ── OTOMATİK EŞLEŞTİRME BUTONU ──
+    st.markdown("""<div class='auto-banner'>
+        🤖 <strong>AI Auto-Mapping:</strong> DeepSeek reads all questions and learning outcomes,
+        then automatically assigns the best match for each question.
+    </div>""", unsafe_allow_html=True)
+
+    if st.button("⚡ Auto-Map All Questions with AI", type="primary", use_container_width=True):
+        with st.spinner(f"DeepSeek is mapping {len(st.session_state.sorular)} questions to {len(st.session_state.ocler)} outcomes..."):
+            try:
+                result = auto_match(st.session_state.sorular, st.session_state.ocler)
+                st.session_state.eslestirmeler = result
+                eslesen = sum(1 for v in result.values() if v.get("oc_no"))
+                st.success(f"✅ {eslesen}/{len(st.session_state.sorular)} questions mapped automatically! Review below and adjust if needed.")
+                st.rerun()
+            except Exception as e:
+                st.error(f"❌ Auto-mapping failed: {str(e)}")
+
+    st.markdown("---")
+
+    # Cevap anahtarı
     with st.expander("📝 Answer Key & Student Data (optional)", expanded=False):
         st.session_state.anahtar = st.text_input(
             "Answer Key (ABCDE... format)",
@@ -385,17 +445,23 @@ elif st.session_state.step == 3:
             st.session_state.ogrenciler = ogrenciler
             st.caption(f"✅ {len(ogrenciler)} students loaded")
 
+    # Soru listesi
     oc_keys   = [""] + [o["no"] for o in st.session_state.ocler]
     oc_labels = ["— Select LO —"] + [f"{o['no']} — {o['tanim']}" for o in st.session_state.ocler]
     zorluklar = ["Easy","Medium","Hard"]
 
-    st.markdown(f"**{len(st.session_state.sorular)} Questions:**")
+    eslesen = sum(1 for v in st.session_state.eslestirmeler.values() if v.get("oc_no"))
+    st.markdown(f"**{len(st.session_state.sorular)} Questions** — review and adjust if needed:")
+
     for s in st.session_state.sorular:
-        st.markdown(f"""<div class='soru-card'>
-            <div class='soru-no'>Question {s['no']}</div>
+        esl = st.session_state.eslestirmeler.get(s["no"], {})
+        matched = bool(esl.get("oc_no"))
+        card_class = "soru-card matched" if matched else "soru-card"
+        st.markdown(f"""<div class='{card_class}'>
+            <div class='soru-no'>{'✅ ' if matched else ''}Question {s['no']}</div>
             <div class='soru-text'>{s['text']}</div>
         </div>""", unsafe_allow_html=True)
-        esl = st.session_state.eslestirmeler.get(s["no"], {})
+
         c1,c2 = st.columns([3,1.5])
         with c1:
             cur = esl.get("oc_no","")
@@ -408,7 +474,6 @@ elif st.session_state.step == 3:
             sel_z = st.selectbox("diff", zorluklar, index=zi, label_visibility="collapsed", key=f"z_{s['no']}")
         st.session_state.eslestirmeler[s["no"]] = {"oc_no": sel, "zorluk": sel_z}
 
-    eslesen = sum(1 for v in st.session_state.eslestirmeler.values() if v.get("oc_no"))
     st.markdown("---")
     pct = eslesen/len(st.session_state.sorular) if st.session_state.sorular else 0
     st.progress(pct, text=f"Mapped: {eslesen}/{len(st.session_state.sorular)} questions")
