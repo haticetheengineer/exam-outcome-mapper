@@ -144,186 +144,109 @@ def get_css(dark):
         return """
         <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
-        :root {
-            --bg: #0f1117;
-            --surface: #1a1d27;
-            --surface2: #22263a;
-            --border: #2e3247;
-            --accent: #7c6af7;
-            --accent2: #5eead4;
-            --text: #e8eaf6;
-            --muted: #8892b0;
-            --success: #64ffda;
-            --warning: #ffd166;
-            --error: #ff6b6b;
-            --radius: 12px;
-        }
-        html, body, [class*="css"] {
+        html, body, p, span, label, div, h1, h2, h3, h4, h5, li,
+        [class*="css"], .stMarkdown, .stText,
+        div[data-testid="stMarkdownContainer"],
+        div[data-testid="stMarkdownContainer"] p,
+        div[data-testid="stMarkdownContainer"] li {
             font-family: 'Plus Jakarta Sans', sans-serif !important;
-            background-color: var(--bg) !important;
-            color: var(--text) !important;
+            color: #e8eaf6 !important;
         }
-        .stApp { background: var(--bg) !important; }
+        .stApp, section.main, div[data-testid="stAppViewContainer"],
+        div[data-testid="stMain"], .block-container {
+            background-color: #0f1117 !important;
+        }
         .block-container { padding-top: 1rem !important; }
+        section[data-testid="stSidebar"],
+        section[data-testid="stSidebar"] > div {
+            background-color: #131620 !important;
+        }
+        section[data-testid="stSidebar"] p,
+        section[data-testid="stSidebar"] span,
+        section[data-testid="stSidebar"] label,
+        section[data-testid="stSidebar"] div { color: #c0c8e8 !important; }
+        .stTextInput input, .stTextArea textarea, .stNumberInput input {
+            background-color: #1e2130 !important;
+            color: #e8eaf6 !important;
+            border: 1px solid #3d4166 !important;
+            border-radius: 8px !important;
+        }
+        .stTextInput label, .stTextArea label, .stNumberInput label,
+        .stRadio label, .stSelectbox label, .stFileUploader label,
+        .stRadio div[role="radiogroup"] label { color: #a0aec0 !important; }
+        .stTabs [data-baseweb="tab-list"] { background-color: #1e2130 !important; border-radius: 10px !important; padding: 4px !important; }
+        .stTabs [data-baseweb="tab"] { color: #a0aec0 !important; border-radius: 8px !important; }
+        .stTabs [aria-selected="true"] { background-color: #2d3250 !important; color: #e8eaf6 !important; }
+        div[data-testid="stFileUploader"] { background-color: #1e2130 !important; border: 1.5px dashed #3d4166 !important; border-radius: 10px !important; }
+        div[data-testid="stFileUploader"] span, div[data-testid="stFileUploader"] p { color: #a0aec0 !important; }
+        details, .streamlit-expanderHeader, details summary {
+            background-color: #1e2130 !important; color: #e8eaf6 !important;
+        }
+        hr { border-color: #2d3250 !important; }
         .app-header {
             background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4c1d95 100%);
-            border: 1px solid #4338ca44;
-            padding: 28px 32px; border-radius: 16px;
+            border: 1px solid #4338ca44; padding: 28px 32px; border-radius: 16px;
             margin-bottom: 28px; text-align: center;
             box-shadow: 0 8px 32px rgba(124,106,247,0.2);
         }
-        .app-header h1 { margin:0; font-size:1.6rem; font-weight:800; color:#e0e7ff; letter-spacing:-0.5px; }
-        .app-header p  { margin:6px 0 0; font-size:0.82rem; color:#a5b4fc; }
+        .app-header h1 { color: #e0e7ff !important; margin:0; font-size:1.6rem; font-weight:800; letter-spacing:-0.5px; }
+        .app-header p  { color: #a5b4fc !important; margin:6px 0 0; font-size:0.82rem; }
         .section-title {
             font-size:0.72rem; font-weight:700; letter-spacing:2px;
-            text-transform:uppercase; color: var(--accent);
+            text-transform:uppercase; color: #a78bfa !important;
             margin-bottom:14px; display:flex; align-items:center; gap:8px;
         }
-        .section-title::after {
-            content:''; flex:1; height:1px; background: var(--border);
-        }
-        div[data-testid="stFileUploader"] {
-            background: var(--surface2) !important;
-            border: 1.5px dashed var(--border) !important;
-            border-radius: var(--radius) !important;
-        }
-        .stButton>button {
-            border-radius: 8px !important;
-            font-weight: 600 !important;
-            transition: all 0.2s !important;
-        }
-        .stButton>button[kind="primary"] {
+        .section-title::after { content:\'\'; flex:1; height:1px; background: #2d3250; }
+        .stButton > button { border-radius: 8px !important; font-weight: 600 !important; transition: all 0.2s !important; }
+        .stButton > button[kind="primary"] {
             background: linear-gradient(135deg, #7c6af7, #6d28d9) !important;
-            border: none !important;
+            border: none !important; color: white !important;
             box-shadow: 0 4px 15px rgba(124,106,247,0.4) !important;
         }
-        .stButton>button[kind="primary"]:hover {
-            transform: translateY(-2px) !important;
-            box-shadow: 0 6px 20px rgba(124,106,247,0.5) !important;
+        .stButton > button[kind="primary"]:hover { transform: translateY(-2px) !important; }
+        .stButton > button[kind="secondary"] {
+            background: #1e2130 !important; border: 1px solid #3d4166 !important; color: #e8eaf6 !important;
         }
-        .stTextInput>div>div>input, .stTextArea>div>div>textarea, .stNumberInput>div>div>input {
-            background: var(--surface2) !important;
-            border: 1.5px solid var(--border) !important;
-            border-radius: 8px !important;
-            color: var(--text) !important;
+        .stDownloadButton > button {
+            background: linear-gradient(135deg, #7c6af7, #6d28d9) !important;
+            color: white !important; border: none !important;
+            border-radius: 8px !important; font-weight: 600 !important;
         }
-        .stTabs [data-baseweb="tab-list"] {
-            background: var(--surface) !important;
-            border-radius: 10px !important;
-            padding: 4px !important;
-        }
-        .stTabs [data-baseweb="tab"] {
-            border-radius: 8px !important;
-            color: var(--muted) !important;
-        }
-        .stTabs [aria-selected="true"] {
-            background: var(--surface2) !important;
-            color: var(--text) !important;
-        }
-        [data-testid="stSidebar"] {
-            background: var(--surface) !important;
-            border-right: 1px solid var(--border) !important;
-        }
-        .stAlert { border-radius: 10px !important; }
-        hr { border-color: var(--border) !important; }
-        .login-wrap {
-            max-width:380px; margin:60px auto;
-            background: var(--surface); border:1px solid var(--border);
-            border-radius:16px; padding:36px;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
-        }
-        .login-wrap h2 { color:var(--text); text-align:center; margin-bottom:24px; font-size:1.2rem; }
         </style>"""
     else:
         return """
         <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
-        :root {
-            --bg: #f8f7ff;
-            --surface: #ffffff;
-            --surface2: #f1f0ff;
-            --border: #e2e0f0;
-            --accent: #6d5ce7;
-            --accent2: #0ea5a0;
-            --text: #1a1640;
-            --muted: #6e6c8e;
-            --success: #059669;
-            --warning: #d97706;
-            --error: #dc2626;
-            --radius: 12px;
-        }
-        html, body, [class*="css"] {
-            font-family: 'Plus Jakarta Sans', sans-serif !important;
-            background-color: var(--bg) !important;
-            color: var(--text) !important;
-        }
-        .stApp { background: var(--bg) !important; }
+        html, body, [class*="css"] { font-family: 'Plus Jakarta Sans', sans-serif !important; }
         .block-container { padding-top: 1rem !important; }
         .app-header {
             background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #9333ea 100%);
-            padding: 28px 32px; border-radius: 16px;
-            margin-bottom: 28px; text-align: center;
+            padding: 28px 32px; border-radius: 16px; margin-bottom: 28px; text-align: center;
             box-shadow: 0 8px 32px rgba(109,92,231,0.25);
         }
-        .app-header h1 { margin:0; font-size:1.6rem; font-weight:800; color:white; letter-spacing:-0.5px; }
-        .app-header p  { margin:6px 0 0; font-size:0.82rem; color:rgba(255,255,255,0.75); }
+        .app-header h1 { margin:0; font-size:1.6rem; font-weight:800; color:white !important; letter-spacing:-0.5px; }
+        .app-header p  { margin:6px 0 0; font-size:0.82rem; color:rgba(255,255,255,0.75) !important; }
         .section-title {
             font-size:0.72rem; font-weight:700; letter-spacing:2px;
-            text-transform:uppercase; color: var(--accent);
+            text-transform:uppercase; color: #6d5ce7;
             margin-bottom:14px; display:flex; align-items:center; gap:8px;
         }
-        .section-title::after {
-            content:''; flex:1; height:1px; background: var(--border);
-        }
-        .stButton>button {
-            border-radius: 8px !important;
-            font-weight: 600 !important;
-            transition: all 0.2s !important;
-        }
-        .stButton>button[kind="primary"] {
+        .section-title::after { content:\'\'; flex:1; height:1px; background: #e2e0f0; }
+        .stButton > button { border-radius: 8px !important; font-weight: 600 !important; transition: all 0.2s !important; }
+        .stButton > button[kind="primary"] {
             background: linear-gradient(135deg, #6d5ce7, #7c3aed) !important;
-            border: none !important;
+            border: none !important; color: white !important;
             box-shadow: 0 4px 15px rgba(109,92,231,0.35) !important;
         }
-        .stButton>button[kind="primary"]:hover {
-            transform: translateY(-2px) !important;
-            box-shadow: 0 6px 20px rgba(109,92,231,0.45) !important;
+        .stButton > button[kind="primary"]:hover { transform: translateY(-2px) !important; }
+        .stTabs [data-baseweb="tab-list"] { background: #f1f0ff !important; border-radius: 10px !important; padding: 4px !important; }
+        .stTabs [aria-selected="true"] { background: white !important; box-shadow: 0 2px 8px rgba(0,0,0,0.08) !important; }
+        .stDownloadButton > button {
+            background: linear-gradient(135deg, #6d5ce7, #7c3aed) !important;
+            color: white !important; border: none !important;
+            border-radius: 8px !important; font-weight: 600 !important;
         }
-        .stTextInput>div>div>input, .stTextArea>div>div>textarea, .stNumberInput>div>div>input {
-            background: var(--surface) !important;
-            border: 1.5px solid var(--border) !important;
-            border-radius: 8px !important;
-            color: var(--text) !important;
-        }
-        .stTabs [data-baseweb="tab-list"] {
-            background: var(--surface2) !important;
-            border-radius: 10px !important;
-            padding: 4px !important;
-        }
-        .stTabs [data-baseweb="tab"] {
-            border-radius: 8px !important;
-            color: var(--muted) !important;
-        }
-        .stTabs [aria-selected="true"] {
-            background: white !important;
-            color: var(--text) !important;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08) !important;
-        }
-        [data-testid="stSidebar"] {
-            background: var(--surface) !important;
-            border-right: 1px solid var(--border) !important;
-        }
-        .stAlert { border-radius: 10px !important; }
-        hr { border-color: var(--border) !important; }
-        .login-wrap {
-            max-width:380px; margin:60px auto;
-            background: white; border:1px solid var(--border);
-            border-radius:16px; padding:36px;
-            box-shadow: 0 8px 32px rgba(109,92,231,0.12);
-        }
-        .login-wrap h2 { color:var(--text); text-align:center; margin-bottom:24px; font-size:1.2rem; }
         </style>"""
-
 st.markdown(get_css(st.session_state.dark), unsafe_allow_html=True)
 
 # ── LOGIN ─────────────────────────────────────────────────────
