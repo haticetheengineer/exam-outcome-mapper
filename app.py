@@ -208,41 +208,67 @@ def build_excel(sorular, ocler, eslestirmeler, anahtar, puan_esit, toplam_puan, 
             return round(toplam_puan / n, 2)
         return ozel_puanlar.get(soru_no, round(toplam_puan / n, 2))
 
-    # ─── SAYFA 1: Question-LO Mapping ───────────────────────
+    # ─── SAYFA 1: Question-LO Mapping (Proliz formatında) ───
     ws1 = wb.active
     ws1.title = "Question-LO Mapping"
     ws1.row_dimensions[1].height = 32
-    for col, h in enumerate(["Q NO","QUESTION","ANSWER KEY","SCORE","LO NO","LO WEIGHT%","DIFFICULTY"], 1):
+
+    # Maksimum kaç ÖÇ eşleşmesi var?
+    max_oc1 = max((len(eslestirmeler.get(s["no"],{}).get("outcomes",[])) for s in sorular), default=1)
+    max_oc1 = max(max_oc1, 1)
+
+    # Header: Q NO | SCORE | QUESTION | DÇ Sıra 1 | Etki Oran 1 | ... | DIFFICULTY | ANSWER KEY
+    headers1 = ["Q NO", "SCORE", "QUESTION"]
+    for i in range(max_oc1):
+        headers1.append(f"DÇ Sıra {i+1}")
+        headers1.append(f"Etki Oran {i+1}")
+    headers1 += ["DIFFICULTY", "ANSWER KEY"]
+
+    for col, h in enumerate(headers1, 1):
         hstyle(ws1.cell(row=1, column=col, value=h))
 
     for ri, s in enumerate(sorular, 2):
         esl = eslestirmeler.get(s["no"], {})
         outcomes = esl.get("outcomes", [])
-        lo_no   = ", ".join(str(oc_no_to_idx.get(o["lo"], o["lo"])) for o in outcomes) if outcomes else ""
-        lo_pct  = ", ".join(str(o["pct"])+"%" for o in outcomes) if outcomes else ""
         diff = esl.get("zorluk","")
         key = anahtar[s["no"]-1] if anahtar and s["no"]-1 < len(anahtar) else "-"
         puan = get_puan(s["no"])
 
-        ws1.cell(ri,1,s["no"]).alignment = Alignment(horizontal="center")
-        ws1.cell(ri,2,s["text"]).alignment = Alignment(wrap_text=True, vertical="top")
-        ws1.cell(ri,3,key).alignment = Alignment(horizontal="center")
-        ws1.cell(ri,4,puan).alignment = Alignment(horizontal="center")
-        ws1.cell(ri,5,lo_no).alignment  = Alignment(horizontal="center", wrap_text=True)
-        ws1.cell(ri,6,lo_pct).alignment = Alignment(horizontal="center")
-        ws1.cell(ri,7,diff).alignment = Alignment(horizontal="center")
+        ws1.cell(ri,1,s["no"]).alignment  = Alignment(horizontal="center")
+        ws1.cell(ri,2,puan).alignment     = Alignment(horizontal="center")
+        ws1.cell(ri,3,s["text"]).alignment= Alignment(wrap_text=True, vertical="top")
 
+        for i, outcome in enumerate(outcomes):
+            lo_idx = oc_no_to_idx.get(outcome.get("lo",""), "")
+            pct    = outcome.get("pct", 100)
+            cb = 4 + i*2
+            ws1.cell(ri, cb,   lo_idx).alignment = Alignment(horizontal="center")
+            ws1.cell(ri, cb+1, pct).alignment    = Alignment(horizontal="center")
+
+        diff_col = 4 + max_oc1*2
+        key_col  = diff_col + 1
+        ws1.cell(ri, diff_col, diff).alignment = Alignment(horizontal="center")
+        ws1.cell(ri, key_col,  key).alignment  = Alignment(horizontal="center")
+
+        total_cols = len(headers1)
         if outcomes:
-            for c in range(1,8):
+            for c in range(1, total_cols+1):
                 ws1.cell(ri,c).fill = PatternFill("solid", fgColor=GREEN_L)
         elif ri%2==0:
-            for c in range(1,8):
+            for c in range(1, total_cols+1):
                 ws1.cell(ri,c).fill = PatternFill("solid", fgColor=GRAY)
 
-    for col, w in zip("ABCDEFG",[8,58,12,8,12,40,12]):
-        ws1.column_dimensions[col].width = w
+    ws1.column_dimensions["A"].width = 8
+    ws1.column_dimensions["B"].width = 8
+    ws1.column_dimensions["C"].width = 58
+    for i in range(max_oc1):
+        from openpyxl.utils import get_column_letter
+        ws1.column_dimensions[get_column_letter(4+i*2)].width   = 10
+        ws1.column_dimensions[get_column_letter(4+i*2+1)].width = 12
+    ws1.column_dimensions[get_column_letter(4+max_oc1*2)].width   = 12
+    ws1.column_dimensions[get_column_letter(4+max_oc1*2+1)].width = 12
     ws1.freeze_panes = "A2"
-    borders(ws1,1,len(sorular)+1,1,7)
+    borders(ws1, 1, len(sorular)+1, 1, len(headers1))
 
     # ─── SAYFA 2: LO Summary ────────────────────────────────
     ws2 = wb.create_sheet("LO Summary")
