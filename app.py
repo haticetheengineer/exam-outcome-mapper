@@ -143,7 +143,13 @@ def get_css(dark):
     common = """
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
-    html, body, [class*="css"] { font-family: 'Plus Jakarta Sans', sans-serif !important; }
+    html, body, button, input, textarea, select,
+    h1, h2, h3, h4, h5, h6, p, span, div, label, li, a,
+    [class*="css"], [class*="st-"], .stMarkdown,
+    div[data-testid="stMarkdownContainer"],
+    div[data-testid="stMarkdownContainer"] * {
+        font-family: 'Plus Jakarta Sans', sans-serif !important;
+    }
     .block-container { padding-top: 0.5rem !important; max-width: 780px !important; }
     /* Streamlit üst header'ı gizle */
     header[data-testid="stHeader"] { display: none !important; }
@@ -187,15 +193,73 @@ def get_css(dark):
     if dark:
         theme = """
     <style>
+    /* === DARK MODE: tüm arka planları zorla === */
+    .stApp, section.main, div[data-testid="stAppViewContainer"],
+    div[data-testid="stMain"], div[data-testid="block-container"],
+    .block-container, .main .block-container {
+        background-color: #0f1117 !important;
+        color: #e8eaf6 !important;
+    }
+    section[data-testid="stSidebar"] > div:first-child {
+        background-color: #131620 !important;
+    }
+    /* Input alanları */
+    input, textarea, [data-baseweb="input"] input,
+    [data-baseweb="textarea"] textarea,
+    div[data-testid="stTextInput"] input,
+    div[data-testid="stTextArea"] textarea,
+    div[data-testid="stNumberInput"] input {
+        background-color: #1e2130 !important;
+        color: #e8eaf6 !important;
+        border-color: #3d4166 !important;
+    }
+    /* Label ve yazılar */
+    label, p, span, div, h1, h2, h3, h4,
+    .stMarkdown p, .stMarkdown span,
+    div[data-testid="stMarkdownContainer"] p {
+        color: #e8eaf6 !important;
+    }
+    /* Alert/info kutuları */
+    div[data-testid="stAlert"] {
+        background-color: #1a1d2e !important;
+    }
+    /* Expander */
+    div[data-testid="stExpander"],
+    div[data-testid="stExpander"] summary,
+    details, details summary {
+        background-color: #1e2130 !important;
+        color: #e8eaf6 !important;
+    }
+    /* File uploader */
+    div[data-testid="stFileUploader"] > div {
+        background-color: #1e2130 !important;
+        border-color: #3d4166 !important;
+    }
+    /* Tab listesi */
+    div[data-baseweb="tab-list"] {
+        background-color: #1e2130 !important;
+    }
+    div[data-baseweb="tab"][aria-selected="true"] {
+        background-color: #2d3250 !important;
+    }
+    /* Radio */
+    div[data-testid="stRadio"] > div { color: #e8eaf6 !important; }
+    /* Toggle */
+    div[data-testid="stToggle"] label { color: #e8eaf6 !important; }
+    /* Number input */
+    div[data-testid="stNumberInput"] div { color: #e8eaf6 !important; }
+    /* Divider */
+    hr { border-color: #2d3250 !important; }
+    /* App header */
     .app-header {
-        background: linear-gradient(135deg, #1e1b4b 0%, #312e81 60%, #4c1d95 100%);
-        box-shadow: 0 8px 32px rgba(124,106,247,0.25);
-        border: 1px solid rgba(124,106,247,0.2);
+        background: linear-gradient(135deg, #1e1b4b 0%, #312e81 60%, #4c1d95 100%) !important;
+        box-shadow: 0 8px 32px rgba(124,106,247,0.25) !important;
+        border: 1px solid rgba(124,106,247,0.2) !important;
     }
     .app-header h1 { color: #e0e7ff !important; }
     .app-header p  { color: #a5b4fc !important; }
-    .section-title { color: #a78bfa; }
-    .section-title::after { background: #2d3250; }
+    .section-title { color: #a78bfa !important; }
+    .section-title::after { background: #2d3250 !important; }
     </style>
     """
     else:
