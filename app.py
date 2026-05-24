@@ -112,12 +112,12 @@ SADECE JSON dondur, baska hicbir sey yazma:
             raw = re.sub(r'```json|```', '', raw).strip()
             data = json.loads(raw)
             for item in data.get("eslestirmeler", []):
-                result[item["soru_no"]] = {
+                soru_no = int(item["soru_no"])  # her zaman integer yap
+                result[soru_no] = {
                     "oc_no": item.get("oc_no", ""),
                     "zorluk": item.get("zorluk", "Medium")
                 }
         except Exception:
-            # Bu chunk basarisiz olursa devam et
             for s in chunk:
                 result[s["no"]] = {"oc_no": ocler[0]["no"] if ocler else "", "zorluk": "Medium"}
 
@@ -426,7 +426,10 @@ elif st.session_state.step == 3:
                 result = auto_match(st.session_state.sorular, st.session_state.ocler)
                 st.session_state.eslestirmeler = result
                 eslesen = sum(1 for v in result.values() if v.get("oc_no"))
-                st.success(f"✅ {eslesen}/{len(st.session_state.sorular)} questions mapped automatically! Review below and adjust if needed.")
+                if eslesen == 0:
+                    st.warning(f"⚠️ Mapping returned 0 matches. Debug info: keys={list(result.keys())[:5]}")
+                else:
+                    st.success(f"✅ {eslesen}/{len(st.session_state.sorular)} questions mapped! Review below.")
                 st.rerun()
             except Exception as e:
                 st.error(f"❌ Auto-mapping failed: {str(e)}")
@@ -458,7 +461,7 @@ elif st.session_state.step == 3:
     st.markdown(f"**{len(st.session_state.sorular)} Questions** — review and adjust if needed:")
 
     for s in st.session_state.sorular:
-        esl = st.session_state.eslestirmeler.get(s["no"], {})
+        esl = st.session_state.eslestirmeler.get(s["no"], st.session_state.eslestirmeler.get(str(s["no"]), {}))
         matched = bool(esl.get("oc_no"))
         card_class = "soru-card matched" if matched else "soru-card"
         st.markdown(f"""<div class='{card_class}'>
