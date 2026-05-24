@@ -143,6 +143,15 @@ def get_css(dark):
     common = """
     <style>
     @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+    /* Sidebar yazıları her zaman görünür */
+    section[data-testid="stSidebar"] * {
+        opacity: 1 !important;
+    }
+    section[data-testid="stSidebar"] p,
+    section[data-testid="stSidebar"] span,
+    section[data-testid="stSidebar"] small {
+        color: inherit !important;
+    }
     /* Sadece metin içeriklerine monospace uygula, butonlara değil */
     p, h1, h2, h3, h4, h5, h6, li, span.stMarkdown,
     div[data-testid="stMarkdownContainer"],
@@ -287,42 +296,80 @@ def get_css(dark):
     else:
         theme = """
     <style>
+    /* Light mode — tüm arka planları zorla */
+    .stApp, section.main,
+    div[data-testid="stAppViewContainer"],
+    div[data-testid="stMain"],
+    div[data-testid="block-container"],
+    .block-container {
+        background-color: #f5f4ff !important;
+        color: #1a1640 !important;
+    }
+    section[data-testid="stSidebar"],
+    section[data-testid="stSidebar"] > div:first-child {
+        background-color: #ffffff !important;
+    }
+    section[data-testid="stSidebar"] *,
+    section[data-testid="stSidebar"] p,
+    section[data-testid="stSidebar"] span,
+    section[data-testid="stSidebar"] label,
+    section[data-testid="stSidebar"] small {
+        color: #1a1640 !important;
+        opacity: 1 !important;
+    }
+    /* Input alanları */
+    input, textarea, div[data-testid="stTextInput"] input,
+    div[data-testid="stTextArea"] textarea,
+    div[data-testid="stNumberInput"] input {
+        background-color: #ffffff !important;
+        color: #1a1640 !important;
+        border-color: #d4d0f0 !important;
+    }
+    /* Yazılar */
+    p, h1, h2, h3, label, span, div {
+        color: #1a1640 !important;
+    }
+    /* Header */
     .app-header {
         background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 60%, #9333ea 100%);
         box-shadow: 0 8px 32px rgba(109,92,231,0.28);
     }
     .app-header h1 { color: white !important; }
     .app-header p  { color: rgba(255,255,255,0.8) !important; }
-    .section-title { color: #6d5ce7; }
+    .section-title { color: #6d5ce7 !important; }
     .section-title::after { background: #e2e0f0; }
-    /* Sidebar yazıları */
-    section[data-testid="stSidebar"] p,
-    section[data-testid="stSidebar"] span,
-    section[data-testid="stSidebar"] label,
-    section[data-testid="stSidebar"] small,
-    section[data-testid="stSidebar"] div {
-        color: #1a1640 !important;
-    }
-    /* Tab tam görünsün */
+    /* Tabs */
     .stTabs [data-baseweb="tab-list"] {
         background: #ede9fe !important;
         border-radius: 10px !important;
         padding: 4px !important;
-        gap: 0 !important;
-        overflow: visible !important;
     }
     .stTabs [data-baseweb="tab"] {
         white-space: nowrap !important;
         padding: 8px 18px !important;
         border-radius: 8px !important;
         color: #6e6c8e !important;
-        font-size: 0.85rem !important;
     }
     .stTabs [aria-selected="true"] {
         background: white !important;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.08) !important;
         color: #6d5ce7 !important;
         font-weight: 600 !important;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08) !important;
+    }
+    /* Alert */
+    div[data-testid="stAlert"] {
+        background-color: #f0edff !important;
+        color: #1a1640 !important;
+    }
+    /* Expander */
+    details, details summary {
+        background-color: #ffffff !important;
+        color: #1a1640 !important;
+    }
+    /* File uploader */
+    div[data-testid="stFileUploader"] > div {
+        background-color: #ffffff !important;
+        border-color: #d4d0f0 !important;
     }
     </style>
     """
