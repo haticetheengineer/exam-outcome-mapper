@@ -81,22 +81,23 @@ def deepseek_vision(img_bytes: bytes, mime: str, prompt: str) -> str:
 
 # ── OTOMATİK EŞLEŞTİRME ──────────────────────────────────────
 def auto_match(sorular: list, ocler: list) -> dict:
-    """DeepSeek ile her soruyu en uygun ÖÇ ile eşleştir"""
+    """DeepSeek ile her soruyu en uygun ÖÇ ile eşleştir — 20'şer parça halinde"""
     oc_listesi = "\n".join([f"- {o['no']}: {o['tanim']}" for o in ocler])
-    soru_listesi = "\n".join([f"{s['no']}. {s['text']}" for s in sorular])
+    result = {}
+    chunk_size = 20
 
-    prompt = f"""Asagida ogrenım ciktilari (OC) ve sinav sorulari var.
-Her soruyu en uygun OC ile eslestirir misin?
+    for i in range(0, len(sorular), chunk_size):
+        chunk = sorular[i:i+chunk_size]
+        soru_listesi = "\n".join([f"{s['no']}. {s['text']}" for s in chunk])
+
+        prompt = f"""Asagida ogrenim ciktilari (OC) ve sinav sorulari var.
+Her soruyu en uygun OC ile eslestir.
 
 OGRENIM CIKTILARI:
 {oc_listesi}
 
 SINAV SORULARI:
 {soru_listesi}
-
-Her soru icin:
-- En uygun OC'yi sec
-- Zorluk seviyesini belirle (Easy, Medium, Hard)
 
 SADECE JSON dondur, baska hicbir sey yazma:
 {{
@@ -106,16 +107,20 @@ SADECE JSON dondur, baska hicbir sey yazma:
   ]
 }}"""
 
-    raw = deepseek_chat([{"role": "user", "content": prompt}], max_tokens=4096)
-    raw = re.sub(r'```json|```', '', raw).strip()
-    data = json.loads(raw)
+        try:
+            raw = deepseek_chat([{"role": "user", "content": prompt}], max_tokens=4096)
+            raw = re.sub(r'```json|```', '', raw).strip()
+            data = json.loads(raw)
+            for item in data.get("eslestirmeler", []):
+                result[item["soru_no"]] = {
+                    "oc_no": item.get("oc_no", ""),
+                    "zorluk": item.get("zorluk", "Medium")
+                }
+        except Exception:
+            # Bu chunk basarisiz olursa devam et
+            for s in chunk:
+                result[s["no"]] = {"oc_no": ocler[0]["no"] if ocler else "", "zorluk": "Medium"}
 
-    result = {}
-    for item in data.get("eslestirmeler", []):
-        result[item["soru_no"]] = {
-            "oc_no": item.get("oc_no", ""),
-            "zorluk": item.get("zorluk", "Medium")
-        }
     return result
 
 # ── YARDIMCI ─────────────────────────────────────────────────
@@ -415,7 +420,8 @@ elif st.session_state.step == 3:
     </div>""", unsafe_allow_html=True)
 
     if st.button("⚡ Auto-Map All Questions with AI", type="primary", use_container_width=True):
-        with st.spinner(f"DeepSeek is mapping {len(st.session_state.sorular)} questions to {len(st.session_state.ocler)} outcomes..."):
+        chunks = (len(st.session_state.sorular) + 19) // 20
+        with st.spinner(f"DeepSeek mapping {len(st.session_state.sorular)} questions in {chunks} batches — please wait..."):
             try:
                 result = auto_match(st.session_state.sorular, st.session_state.ocler)
                 st.session_state.eslestirmeler = result
