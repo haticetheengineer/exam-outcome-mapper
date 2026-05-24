@@ -298,13 +298,21 @@ if uploaded_exam:
             from docx import Document
             doc = Document(io.BytesIO(raw))
             # Paragrafları oku
-            text = "\n".join(p.text for p in doc.paragraphs)
-            # Tabloları da oku
+            para_text = "\n".join(p.text for p in doc.paragraphs)
+            # Tablolardaki metni ayrı topla (tekrar önlemek için set kullan)
+            table_text = ""
+            seen_cells = set()
             for table in doc.tables:
                 for row in table.rows:
                     for cell in row.cells:
-                        text += "\n" + cell.text
-            sorular = extract_questions(text)
+                        ct = cell.text.strip()
+                        if ct and ct not in seen_cells:
+                            seen_cells.add(ct)
+                            table_text += ct + "\n"
+            # Önce paragraflardan dene, bulamazsa tablodan
+            sorular = extract_questions(para_text)
+            if not sorular:
+                sorular = extract_questions(table_text)
         elif ext == "pdf":
             import pypdf
             text = "\n".join(p.extract_text() or "" for p in pypdf.PdfReader(io.BytesIO(raw)).pages)
