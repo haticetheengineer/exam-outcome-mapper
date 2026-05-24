@@ -218,7 +218,7 @@ def build_excel(sorular, ocler, eslestirmeler, anahtar, puan_esit, toplam_puan, 
     for ri, s in enumerate(sorular, 2):
         esl = eslestirmeler.get(s["no"], {})
         outcomes = esl.get("outcomes", [])
-        lo_no   = ", ".join(o["lo"] for o in outcomes) if outcomes else ""
+        lo_no   = ", ".join(str(oc_no_to_idx.get(o["lo"], o["lo"])) for o in outcomes) if outcomes else ""
         lo_pct  = ", ".join(str(o["pct"])+"%" for o in outcomes) if outcomes else ""
         diff = esl.get("zorluk","")
         key = anahtar[s["no"]-1] if anahtar and s["no"]-1 < len(anahtar) else "-"
