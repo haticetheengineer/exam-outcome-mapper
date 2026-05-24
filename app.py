@@ -3,11 +3,11 @@ import json
 import re
 import io
 import base64
-from openai import OpenAI
+import requests
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 
-st.set_page_config(page_title="Sınav ÖÇ Eşleştirme", page_icon="📋", layout="centered")
+st.set_page_config(page_title="Exam Outcome Mapper", page_icon="📋", layout="centered")
 
 st.markdown("""
 <style>
@@ -45,40 +45,38 @@ def init_state():
 
 init_state()
 
-# ── GPT API ───────────────────────────────────────────────────
-@st.cache_resource
-def get_client():
-    return OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+# ── DEEPSEEK API ──────────────────────────────────────────────
+DEEPSEEK_URL = "https://api.deepseek.com/chat/completions"
 
-def gpt_chat(messages: list, max_tokens=4096) -> str:
-    client = get_client()
-    resp = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=messages,
-        max_tokens=max_tokens
+def deepseek_chat(messages: list, max_tokens=4096) -> str:
+    api_key = st.secrets["DEEPSEEK_API_KEY"]
+    resp = requests.post(
+        DEEPSEEK_URL,
+        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+        json={"model": "deepseek-chat", "messages": messages, "max_tokens": max_tokens},
+        timeout=60
     )
-    return resp.choices[0].message.content.strip()
+    resp.raise_for_status()
+    return resp.json()["choices"][0]["message"]["content"].strip()
 
-def gpt_vision(img_bytes: bytes, mime: str, prompt: str) -> str:
-    client = get_client()
+def deepseek_vision(img_bytes: bytes, mime: str, prompt: str) -> str:
+    api_key = st.secrets["DEEPSEEK_API_KEY"]
     b64 = base64.b64encode(img_bytes).decode()
-    resp = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[{"role": "user", "content": [
-            {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{b64}"}},
-            {"type": "text", "text": prompt}
-        ]}],
-        max_tokens=2000
+    resp = requests.post(
+        DEEPSEEK_URL,
+        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+        json={
+            "model": "deepseek-chat",
+            "messages": [{"role": "user", "content": [
+                {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{b64}"}},
+                {"type": "text", "text": prompt}
+            ]}],
+            "max_tokens": 2000
+        },
+        timeout=60
     )
-    return resp.choices[0].message.content.strip()
-
-def gpt_pdf(pdf_bytes: bytes, prompt: str) -> str:
-    """PDF'i metin olarak çıkarıp GPT'ye gönder"""
-    import pypdf
-    reader = pypdf.PdfReader(io.BytesIO(pdf_bytes))
-    text = "\n".join(page.extract_text() or "" for page in reader.pages)
-    full_prompt = f"{prompt}\n\nMETİN:\n{text[:12000]}"
-    return gpt_chat([{"role": "user", "content": full_prompt}])
+    resp.raise_for_status()
+    return resp.json()["choices"][0]["message"]["content"].strip()
 
 # ── YARDIMCI ─────────────────────────────────────────────────
 def parse_text(text: str) -> list:
@@ -96,29 +94,29 @@ def parse_text(text: str) -> list:
                 sorular.append({"no": idx, "text": line})
     return sorular
 
-def parse_via_gpt(text: str) -> list:
-    prompt = f"""Aşağıdaki sınav metninden "?" ile biten TÜM soruları çıkar.
-SADECE JSON döndür, başka hiçbir şey yazma:
+def parse_via_deepseek(text: str) -> list:
+    prompt = f"""Asagidaki sinav metninden "?" ile biten TUM sorulari cikar.
+SADECE JSON dondur, baska hicbir sey yazma:
 {{"sorular":[{{"no":1,"text":"Soru metni?"}},{{"no":2,"text":"..."}}]}}
 
-METİN:
+METIN:
 {text[:10000]}"""
-    raw = gpt_chat([{"role": "user", "content": prompt}])
+    raw = deepseek_chat([{"role": "user", "content": prompt}])
     raw = re.sub(r'```json|```', '', raw).strip()
     return json.loads(raw).get("sorular", [])
 
 def read_oc_from_image(img_bytes: bytes, mime: str) -> list:
-    prompt = """Bu resimde öğrenim çıktıları (ÖÇ) listesi var.
-Tüm ÖÇ'leri çıkar. SADECE JSON döndür:
-{"ocler":[{"no":"ÖÇ-1","tanim":"..."},{"no":"ÖÇ-2","tanim":"..."}]}"""
-    raw = gpt_vision(img_bytes, mime, prompt)
+    prompt = """Bu resimde ogrenim ciktilari (OC) listesi var.
+Tum OC'leri cikar. SADECE JSON dondur:
+{"ocler":[{"no":"OC-1","tanim":"..."},{"no":"OC-2","tanim":"..."}]}"""
+    raw = deepseek_vision(img_bytes, mime, prompt)
     raw = re.sub(r'```json|```', '', raw).strip()
     return json.loads(raw).get("ocler", [])
 
 def build_excel(sorular, ocler, eslestirmeler, ogrenciler, anahtar) -> bytes:
     wb = Workbook()
-    BLUE  = "1A3A6B"; GREEN = "1E6B3A"; GREEN_L = "E8F5ED"
-    RED   = "C0392B"; GRAY  = "F5F5F5"; WHITE   = "FFFFFF"
+    BLUE = "1A3A6B"; GREEN = "1E6B3A"; GREEN_L = "E8F5ED"
+    RED  = "C0392B"; GRAY  = "F5F5F5"; WHITE   = "FFFFFF"
 
     def hstyle(cell):
         cell.font = Font(bold=True, color=WHITE, size=10)
@@ -131,11 +129,11 @@ def build_excel(sorular, ocler, eslestirmeler, ogrenciler, anahtar) -> bytes:
             for cell in row:
                 cell.border = Border(left=t, right=t, top=t, bottom=t)
 
-    # SAYFA 1: Soru-ÖÇ
+    # SAYFA 1: Soru-OC
     ws1 = wb.active
-    ws1.title = "Soru-ÖÇ Eşleştirme"
+    ws1.title = "Soru-OC Eslestirme"
     ws1.row_dimensions[1].height = 32
-    for col, h in enumerate(["SORU NO","SORU METNİ","DOĞRU CEVAP","ÖÇ NO","ÖÇ TANIMI","ZORLUK","BAŞARI %"], 1):
+    for col, h in enumerate(["SORU NO","SORU METNI","DOGRU CEVAP","OC NO","OC TANIMI","ZORLUK","BASARI %"], 1):
         hstyle(ws1.cell(row=1, column=col, value=h))
 
     oc_map = {o["no"]: o["tanim"] for o in ocler}
@@ -170,10 +168,10 @@ def build_excel(sorular, ocler, eslestirmeler, ogrenciler, anahtar) -> bytes:
     ws1.freeze_panes = "A2"
     borders(ws1, 1, len(sorular)+1, 1, 7)
 
-    # SAYFA 2: ÖÇ Özet
-    ws2 = wb.create_sheet("ÖÇ Özet")
+    # SAYFA 2: OC Ozet
+    ws2 = wb.create_sheet("OC Ozet")
     ws2.row_dimensions[1].height = 32
-    for col, h in enumerate(["ÖÇ NO","ÖÇ TANIMI","SORU SAYISI","ORT. BAŞARI %","DEĞERLENDİRME"],1):
+    for col, h in enumerate(["OC NO","OC TANIMI","SORU SAYISI","ORT. BASARI %","DEGERLENDIRME"],1):
         hstyle(ws2.cell(row=1, column=col, value=h))
 
     for ri, oc in enumerate(ocler, 2):
@@ -186,7 +184,7 @@ def build_excel(sorular, ocler, eslestirmeler, ogrenciler, anahtar) -> bytes:
                     cnt = sum(1 for o in ogrenciler if len(o["cevaplar"])>s["no"]-1 and o["cevaplar"][s["no"]-1]==dogru)
                     basarilar.append(cnt/len(ogrenciler))
         ort = sum(basarilar)/len(basarilar) if basarilar else None
-        durum = ("✅ Yeterli" if ort>=0.6 else "⚠️ Geliştirilmeli") if ort is not None else ""
+        durum = ("Yeterli" if ort>=0.6 else "Gelistirilmeli") if ort is not None else ""
 
         ws2.cell(ri,1,oc["no"]).alignment = Alignment(horizontal="center")
         ws2.cell(ri,2,oc["tanim"]).alignment = Alignment(wrap_text=True)
@@ -207,11 +205,11 @@ def build_excel(sorular, ocler, eslestirmeler, ogrenciler, anahtar) -> bytes:
     ws2.freeze_panes = "A2"
     borders(ws2, 1, len(ocler)+1, 1, 5)
 
-    # SAYFA 3: Öğrenci
+    # SAYFA 3: Ogrenci
     if ogrenciler:
-        ws3 = wb.create_sheet("Öğrenci Sonuçları")
+        ws3 = wb.create_sheet("Ogrenci Sonuclari")
         ws3.row_dimensions[1].height = 32
-        for col, h in enumerate(["AD SOYAD","ÖĞRENCİ NO","CEVAPLAR","DOĞRU SAYISI","PUAN %"],1):
+        for col, h in enumerate(["AD SOYAD","OGRENCI NO","CEVAPLAR","DOGRU SAYISI","PUAN %"],1):
             hstyle(ws3.cell(row=1, column=col, value=h))
         for ri, o in enumerate(ogrenciler, 2):
             dogru_say = sum(1 for i,d in enumerate(anahtar) if i < len(o["cevaplar"]) and o["cevaplar"][i]==d) if anahtar else 0
@@ -237,36 +235,36 @@ def build_excel(sorular, ocler, eslestirmeler, ogrenciler, anahtar) -> bytes:
 
 # ── SIDEBAR ───────────────────────────────────────────────────
 with st.sidebar:
-    st.markdown("### 📋 Sınav ÖÇ Sistemi")
+    st.markdown("### 📋 Exam Outcome Mapper")
     st.markdown("---")
-    steps = ["📂 Sınav Yükle","🎯 ÖÇ Tanımla","🔗 Eşleştir","📊 Excel"]
+    steps = ["📂 Upload Exam","🎯 Define Outcomes","🔗 Map Questions","📊 Export Excel"]
     for i, s in enumerate(steps, 1):
         color = "#27ae60" if st.session_state.step > i else ("#1a3a6b" if st.session_state.step==i else "#aaa")
         icon  = "✅" if st.session_state.step > i else ("▶" if st.session_state.step==i else "○")
         st.markdown(f"<span style='color:{color};font-weight:600'>{icon} {s}</span>", unsafe_allow_html=True)
     st.markdown("---")
     if st.session_state.step > 1:
-        if st.button("🔄 Başa Dön", use_container_width=True):
+        if st.button("🔄 Start Over", use_container_width=True):
             for k in ["step","sorular","ocler","eslestirmeler","anahtar","ogrenciler"]:
                 del st.session_state[k]
             st.rerun()
     st.markdown("---")
-    st.markdown("<small style='color:#aaa'>Kapadokya Üniversitesi<br>Akreditasyon Raporu Sistemi<br><br>🤖 GPT-4o mini ile çalışır</small>", unsafe_allow_html=True)
+    st.markdown("<small style='color:#aaa'>Kapadokya University<br>Accreditation Report System<br><br>🤖 Powered by DeepSeek AI</small>", unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════════════
-# ADIM 1 — DOSYA YÜKLE
+# STEP 1 — UPLOAD
 # ══════════════════════════════════════════════════════════════
 if st.session_state.step == 1:
     st.markdown("""<div class='step-header'>
-        <h2>📂 Adım 1 — Sınav Dosyasını Yükle</h2>
-        <p>Sistem soruları otomatik çıkarır — her soru "?" ile bitmelidir</p>
+        <h2>📂 Step 1 — Upload Exam File</h2>
+        <p>System extracts questions automatically — each question must end with "?"</p>
     </div>""", unsafe_allow_html=True)
 
-    uploaded = st.file_uploader("Dosya seç", type=["txt","pdf","docx","doc"])
+    uploaded = st.file_uploader("Choose file", type=["txt","pdf","docx","doc"])
 
     if uploaded:
         ext = uploaded.name.split(".")[-1].lower()
-        with st.spinner("Sorular çıkarılıyor..."):
+        with st.spinner("Extracting questions..."):
             try:
                 sorular = []
                 raw_bytes = uploaded.read()
@@ -275,7 +273,7 @@ if st.session_state.step == 1:
                     text = raw_bytes.decode("utf-8", errors="ignore")
                     sorular = parse_text(text)
                     if not sorular:
-                        sorular = parse_via_gpt(text)
+                        sorular = parse_via_deepseek(text)
 
                 elif ext in ["docx","doc"]:
                     from docx import Document
@@ -283,7 +281,7 @@ if st.session_state.step == 1:
                     text = "\n".join(p.text for p in doc.paragraphs)
                     sorular = parse_text(text)
                     if not sorular:
-                        sorular = parse_via_gpt(text)
+                        sorular = parse_via_deepseek(text)
 
                 elif ext == "pdf":
                     import pypdf
@@ -291,33 +289,33 @@ if st.session_state.step == 1:
                     text = "\n".join(page.extract_text() or "" for page in reader.pages)
                     sorular = parse_text(text)
                     if not sorular:
-                        sorular = parse_via_gpt(text)
+                        sorular = parse_via_deepseek(text)
 
                 if not sorular:
-                    st.error("❌ Hiç soru bulunamadı. Sorular '?' ile bitmelidir.")
+                    st.error("❌ No questions found. Questions must end with '?'")
                 else:
                     st.session_state.sorular = sorular
-                    st.success(f"✅ **{len(sorular)} soru** başarıyla çıkarıldı!")
-                    with st.expander(f"Bulunan sorular ({len(sorular)} adet)", expanded=False):
+                    st.success(f"✅ **{len(sorular)} questions** extracted successfully!")
+                    with st.expander(f"Preview questions ({len(sorular)})", expanded=False):
                         for s in sorular:
                             st.markdown(f"**{s['no']}.** {s['text']}")
-                    if st.button("Devam → ÖÇ Tanımla", type="primary", use_container_width=True):
+                    if st.button("Continue → Define Outcomes", type="primary", use_container_width=True):
                         st.session_state.step = 2
                         st.rerun()
             except Exception as e:
-                st.error(f"❌ Hata: {str(e)}")
+                st.error(f"❌ Error: {str(e)}")
 
 # ══════════════════════════════════════════════════════════════
-# ADIM 2 — ÖÇ TANIMLA
+# STEP 2 — OUTCOMES
 # ══════════════════════════════════════════════════════════════
 elif st.session_state.step == 2:
     st.markdown("""<div class='step-header'>
-        <h2>🎯 Adım 2 — Öğrenim Çıktılarını Tanımla</h2>
-        <p>Elle girin veya ÖÇ listesinin fotoğrafını yükleyin</p>
+        <h2>🎯 Step 2 — Define Learning Outcomes</h2>
+        <p>Enter manually or upload a photo of your outcome list</p>
     </div>""", unsafe_allow_html=True)
 
     if st.session_state.ocler:
-        st.markdown("**Tanımlanan ÖÇ'ler:**")
+        st.markdown("**Defined Outcomes:**")
         for i, oc in enumerate(st.session_state.ocler):
             c1,c2,c3 = st.columns([1.5,7,1])
             with c1: st.markdown(f"<span class='oc-badge'>{oc['no']}</span>", unsafe_allow_html=True)
@@ -327,57 +325,57 @@ elif st.session_state.step == 2:
                     st.session_state.ocler.pop(i); st.rerun()
         st.markdown("---")
 
-    st.markdown("**Yeni ÖÇ Ekle:**")
+    st.markdown("**Add New Outcome:**")
     c1,c2,c3 = st.columns([2,7,1.5])
     with c1:
-        oc_no = st.text_input("No", value=f"ÖÇ-{len(st.session_state.ocler)+1}", label_visibility="collapsed")
+        oc_no = st.text_input("No", value=f"LO-{len(st.session_state.ocler)+1}", label_visibility="collapsed")
     with c2:
-        oc_tanim = st.text_input("Tanım", label_visibility="collapsed", placeholder="Öğrenim çıktısı tanımı...")
+        oc_tanim = st.text_input("Definition", label_visibility="collapsed", placeholder="Learning outcome definition...")
     with c3:
-        if st.button("➕ Ekle", use_container_width=True):
+        if st.button("➕ Add", use_container_width=True):
             if oc_no and oc_tanim:
                 if not any(o["no"]==oc_no for o in st.session_state.ocler):
                     st.session_state.ocler.append({"no":oc_no,"tanim":oc_tanim}); st.rerun()
-                else: st.warning("Bu ÖÇ numarası zaten var.")
-            else: st.warning("ÖÇ no ve tanımını doldurun.")
+                else: st.warning("This outcome number already exists.")
+            else: st.warning("Please fill in both fields.")
 
     st.markdown("---")
-    st.markdown("**📷 ÖÇ listesinin fotoğrafından otomatik oku:**")
-    oc_img = st.file_uploader("ÖÇ resmi", type=["jpg","jpeg","png","webp"], label_visibility="collapsed")
+    st.markdown("**📷 Auto-read from outcome list photo:**")
+    oc_img = st.file_uploader("Outcome image", type=["jpg","jpeg","png","webp"], label_visibility="collapsed")
     if oc_img:
-        with st.spinner("Resimden ÖÇ'ler okunuyor..."):
+        with st.spinner("Reading outcomes from image..."):
             try:
                 new_ocler = read_oc_from_image(oc_img.read(), oc_img.type)
                 added = 0
                 for oc in new_ocler:
                     if not any(o["no"]==oc["no"] for o in st.session_state.ocler):
                         st.session_state.ocler.append(oc); added += 1
-                st.success(f"✅ {added} yeni ÖÇ eklendi!"); st.rerun()
+                st.success(f"✅ {added} outcomes added!"); st.rerun()
             except Exception as e:
                 st.error(f"❌ {e}")
 
     st.markdown("---")
     if st.session_state.ocler:
-        if st.button("Devam → Soruları Eşleştir", type="primary", use_container_width=True):
+        if st.button("Continue → Map Questions", type="primary", use_container_width=True):
             st.session_state.step = 3; st.rerun()
     else:
-        st.info("En az bir ÖÇ ekleyin, sonra devam edebilirsiniz.")
+        st.info("Add at least one learning outcome to continue.")
 
 # ══════════════════════════════════════════════════════════════
-# ADIM 3 — EŞLEŞTİR
+# STEP 3 — MAP
 # ══════════════════════════════════════════════════════════════
 elif st.session_state.step == 3:
     st.markdown("""<div class='step-header'>
-        <h2>🔗 Adım 3 — Soru ÖÇ Eşleştirme</h2>
-        <p>Her soruya ÖÇ ve zorluk seviyesi atayın</p>
+        <h2>🔗 Step 3 — Map Questions to Outcomes</h2>
+        <p>Assign a learning outcome and difficulty to each question</p>
     </div>""", unsafe_allow_html=True)
 
-    with st.expander("📝 Cevap Anahtarı ve Öğrenci Verileri (opsiyonel)", expanded=False):
+    with st.expander("📝 Answer Key & Student Data (optional)", expanded=False):
         st.session_state.anahtar = st.text_input(
-            "Cevap Anahtarı (ABCDE... formatında)",
+            "Answer Key (ABCDE... format)",
             value=st.session_state.anahtar, placeholder="ABCDEABCDE..."
         ).upper()
-        ogr_raw = st.text_area("Öğrenci Cevapları (AD SOYAD \\t NO \\t CEVAPLAR)", height=120)
+        ogr_raw = st.text_area("Student Answers (NAME \\t ID \\t ANSWERS per line)", height=120)
         if ogr_raw:
             ogrenciler = []
             for line in ogr_raw.strip().split("\n"):
@@ -385,16 +383,16 @@ elif st.session_state.step == 3:
                 if len(parts) >= 2:
                     ogrenciler.append({"ad":" ".join(parts[:-2]),"no":parts[-2],"cevaplar":parts[-1].upper()})
             st.session_state.ogrenciler = ogrenciler
-            st.caption(f"✅ {len(ogrenciler)} öğrenci yüklendi")
+            st.caption(f"✅ {len(ogrenciler)} students loaded")
 
     oc_keys   = [""] + [o["no"] for o in st.session_state.ocler]
-    oc_labels = ["— ÖÇ Seç —"] + [f"{o['no']} — {o['tanim']}" for o in st.session_state.ocler]
-    zorluklar = ["Kolay","Orta","Zor"]
+    oc_labels = ["— Select LO —"] + [f"{o['no']} — {o['tanim']}" for o in st.session_state.ocler]
+    zorluklar = ["Easy","Medium","Hard"]
 
-    st.markdown(f"**{len(st.session_state.sorular)} Soru:**")
+    st.markdown(f"**{len(st.session_state.sorular)} Questions:**")
     for s in st.session_state.sorular:
         st.markdown(f"""<div class='soru-card'>
-            <div class='soru-no'>Soru {s['no']}</div>
+            <div class='soru-no'>Question {s['no']}</div>
             <div class='soru-text'>{s['text']}</div>
         </div>""", unsafe_allow_html=True)
         esl = st.session_state.eslestirmeler.get(s["no"], {})
@@ -402,57 +400,57 @@ elif st.session_state.step == 3:
         with c1:
             cur = esl.get("oc_no","")
             idx = oc_keys.index(cur) if cur in oc_keys else 0
-            sel = st.selectbox("oc", oc_keys, format_func=lambda x: oc_labels[oc_keys.index(x)],
+            sel = st.selectbox("lo", oc_keys, format_func=lambda x: oc_labels[oc_keys.index(x)],
                                index=idx, label_visibility="collapsed", key=f"oc_{s['no']}")
         with c2:
-            cur_z = esl.get("zorluk","Orta")
+            cur_z = esl.get("zorluk","Medium")
             zi = zorluklar.index(cur_z) if cur_z in zorluklar else 1
-            sel_z = st.selectbox("zor", zorluklar, index=zi, label_visibility="collapsed", key=f"z_{s['no']}")
+            sel_z = st.selectbox("diff", zorluklar, index=zi, label_visibility="collapsed", key=f"z_{s['no']}")
         st.session_state.eslestirmeler[s["no"]] = {"oc_no": sel, "zorluk": sel_z}
 
     eslesen = sum(1 for v in st.session_state.eslestirmeler.values() if v.get("oc_no"))
     st.markdown("---")
     pct = eslesen/len(st.session_state.sorular) if st.session_state.sorular else 0
-    st.progress(pct, text=f"Eşleştirme: {eslesen}/{len(st.session_state.sorular)} soru")
+    st.progress(pct, text=f"Mapped: {eslesen}/{len(st.session_state.sorular)} questions")
 
-    if st.button("📊 Excel Raporu Oluştur", type="primary", use_container_width=True):
+    if st.button("📊 Generate Excel Report", type="primary", use_container_width=True):
         st.session_state.step = 4; st.rerun()
 
 # ══════════════════════════════════════════════════════════════
-# ADIM 4 — EXCEL
+# STEP 4 — EXCEL
 # ══════════════════════════════════════════════════════════════
 elif st.session_state.step == 4:
     st.markdown("""<div class='step-header'>
-        <h2>✅ Adım 4 — Rapor Hazır</h2>
-        <p>Excel dosyası oluşturuldu, indirmeye hazır</p>
+        <h2>✅ Step 4 — Report Ready</h2>
+        <p>Your accreditation Excel report has been generated</p>
     </div>""", unsafe_allow_html=True)
 
     eslesen = sum(1 for v in st.session_state.eslestirmeler.values() if v.get("oc_no"))
     c1,c2,c3 = st.columns(3)
-    with c1: st.metric("Toplam Soru", len(st.session_state.sorular))
-    with c2: st.metric("Toplam ÖÇ", len(st.session_state.ocler))
-    with c3: st.metric("Eşleştirilen", f"{eslesen}/{len(st.session_state.sorular)}")
+    with c1: st.metric("Total Questions", len(st.session_state.sorular))
+    with c2: st.metric("Total Outcomes", len(st.session_state.ocler))
+    with c3: st.metric("Mapped", f"{eslesen}/{len(st.session_state.sorular)}")
 
-    with st.spinner("Excel hazırlanıyor..."):
+    with st.spinner("Building Excel..."):
         excel_bytes = build_excel(
             st.session_state.sorular, st.session_state.ocler,
             st.session_state.eslestirmeler, st.session_state.ogrenciler,
             st.session_state.anahtar
         )
 
-    st.success("✅ 3 sayfalık Excel raporu hazır!")
+    st.success("✅ 3-sheet Excel report is ready!")
     st.download_button(
-        label="⬇ Excel Raporu İndir (.xlsx)",
+        label="⬇ Download Excel Report (.xlsx)",
         data=excel_bytes,
-        file_name="Sinav-OC-Raporu.xlsx",
+        file_name="Exam-Outcome-Report.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         use_container_width=True, type="primary"
     )
 
-    with st.expander("📊 ÖÇ Özet", expanded=True):
+    with st.expander("📊 Outcome Summary", expanded=True):
         for oc in st.session_state.ocler:
             n = sum(1 for s in st.session_state.sorular
                     if st.session_state.eslestirmeler.get(s["no"],{}).get("oc_no")==oc["no"])
             st.markdown(f"**{oc['no']}** — {oc['tanim']}")
-            st.caption(f"{n} soru eşleşti")
+            st.caption(f"{n} questions mapped")
             st.markdown("---")
