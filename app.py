@@ -379,13 +379,24 @@ def get_css(dark):
         color: #1a1640 !important;
     }
     div[data-testid="stFileUploaderDropzone"] button,
-    div[data-testid="stFileUploaderDropzone"] button * {
+    div[data-testid="stFileUploaderDropzone"] button *,
+    [data-testid="stFileUploaderDropzone"] button,
+    [class*="uploadButton"],
+    button[data-testid="baseButton-secondary"] {
         background-color: #7c6af7 !important;
         background: #7c6af7 !important;
         color: white !important;
         border-radius: 8px !important;
         font-family: sans-serif !important;
+        border: none !important;
         opacity: 1 !important;
+    }
+    /* Tüm secondary butonları light modda mor yap */
+    .stApp button[kind="secondary"],
+    .stApp .stButton button[kind="secondary"] {
+        background-color: #7c6af7 !important;
+        color: white !important;
+        border: none !important;
     }
     div[data-testid="stFileUploaderDropzone"] small,
     div[data-testid="stFileUploaderDropzone"] span:not(button span),
