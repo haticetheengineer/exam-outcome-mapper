@@ -143,6 +143,25 @@ def get_css(dark):
     common = """
     <style>
     @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+    /* Toggle görünür yap */
+    div[data-testid="stToggle"] {
+        background: #e9e6ff !important;
+        border: 1.5px solid #c4b5fd !important;
+        border-radius: 20px !important;
+        padding: 4px 10px !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        gap: 6px !important;
+    }
+    div[data-testid="stToggle"] label {
+        color: #4c3bcf !important;
+        font-weight: 600 !important;
+        font-size: 0.8rem !important;
+    }
+    div[data-testid="stToggle"] p {
+        color: #4c3bcf !important;
+        font-weight: 600 !important;
+    }
     /* Sidebar yazıları her zaman görünür */
     section[data-testid="stSidebar"] * {
         opacity: 1 !important;
