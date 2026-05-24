@@ -142,19 +142,22 @@ def t(key):
 def get_css(dark):
     common = """
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
     html, body, button, input, textarea, select,
     h1, h2, h3, h4, h5, h6, p, span, div, label, li, a,
     [class*="css"], [class*="st-"], .stMarkdown,
     div[data-testid="stMarkdownContainer"],
     div[data-testid="stMarkdownContainer"] * {
-        font-family: 'Plus Jakarta Sans', sans-serif !important;
+        font-family: 'JetBrains Mono', monospace !important;
     }
     .block-container { padding-top: 0.5rem !important; max-width: 780px !important; }
     /* Streamlit üst header'ı gizle */
     header[data-testid="stHeader"] { display: none !important; }
     #MainMenu { display: none !important; }
     footer { display: none !important; }
+    /* File uploader çift label fix */
+    div[data-testid="stFileUploader"] label { display: none !important; }
+    div[data-testid="stFileUploaderDropzoneInstructions"] { font-family: 'JetBrains Mono', monospace !important; }
     /* Butonlar */
     .stButton > button { border-radius: 8px !important; font-weight: 600 !important; transition: all 0.2s !important; }
     .stButton > button[kind="primary"] {
