@@ -378,16 +378,31 @@ def get_css(dark):
         border-radius: 10px !important;
         color: #1a1640 !important;
     }
-    div[data-testid="stFileUploaderDropzone"] button {
+    div[data-testid="stFileUploaderDropzone"] button,
+    div[data-testid="stFileUploaderDropzone"] button * {
         background-color: #7c6af7 !important;
+        background: #7c6af7 !important;
         color: white !important;
         border-radius: 8px !important;
         font-family: sans-serif !important;
+        opacity: 1 !important;
     }
     div[data-testid="stFileUploaderDropzone"] small,
-    div[data-testid="stFileUploaderDropzone"] span,
+    div[data-testid="stFileUploaderDropzone"] span:not(button span),
     div[data-testid="stFileUploaderDropzone"] p {
         color: #6e6c8e !important;
+    }
+    /* Sidebar butonları - light mode */
+    section[data-testid="stSidebar"] .stButton > button {
+        background: #f0edff !important;
+        color: #4c3bcf !important;
+        border: 1px solid #c4b5fd !important;
+        font-weight: 600 !important;
+    }
+    section[data-testid="stSidebar"] .stButton > button:hover {
+        background: #7c6af7 !important;
+        color: white !important;
+        border-color: #7c6af7 !important;
     }
     </style>
     """
