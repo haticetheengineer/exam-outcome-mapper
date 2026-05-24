@@ -24,6 +24,46 @@ for k, v in {
         st.session_state[k] = v
 
 # ── DİL ──────────────────────────────────────────────────────
+# Bloom taksonomisi çevirileri
+BLOOM_TR = {
+    "Remember":   "Hatırlama",
+    "Understand": "Anlama",
+    "Apply":      "Uygulama",
+    "Analyze":    "Analiz",
+    "Evaluate":   "Değerlendirme",
+    "Create":     "Yaratma",
+}
+BLOOM_EN = {v: k for k, v in BLOOM_TR.items()}  # reverse map
+# Zorluk (Difficulty) çevirileri
+DIFF_TR = {
+    "Easy":   "Kolay",
+    "Medium": "Orta",
+    "Hard":   "Zor",
+    "Kolay":  "Kolay",
+    "Orta":   "Orta",
+    "Zor":    "Zor",
+}
+DIFF_EN = {
+    "Kolay":  "Easy",
+    "Orta":   "Medium",
+    "Zor":    "Hard",
+    "Easy":   "Easy",
+    "Medium": "Medium",
+    "Hard":   "Hard",
+}
+
+def translate_bloom(val):
+    if st.session_state.lang == "TR":
+        return BLOOM_TR.get(val, BLOOM_EN.get(val, val))
+    else:
+        return BLOOM_EN.get(val, BLOOM_TR.get(val, val) if val not in BLOOM_TR else val) or val
+
+def translate_diff(val):
+    if st.session_state.lang == "TR":
+        return DIFF_TR.get(val, val)
+    else:
+        return DIFF_EN.get(val, val)
+
 TR = {
     "title": "Sınav ÖÇ Eşleştirme",
     "subtitle": "Kapadokya Üniversitesi — Akreditasyon Rapor Sistemi",
@@ -83,6 +123,8 @@ TR = {
     "bolum": "Bölüm / Program",
     "sinav_tarihi": "Sınav Tarihi",
     "download_rubrik": "Rubrik Form İndir (.docx)",
+    "bloom_col": "Bloom Taksonomisi",
+    "diff_col": "Zorluk",
 }
 
 EN = {
@@ -144,6 +186,8 @@ EN = {
     "bolum": "Department / Program",
     "sinav_tarihi": "Exam Date",
     "download_rubrik": "Download Rubric Form (.docx)",
+    "bloom_col": "Bloom's Taxonomy",
+    "diff_col": "Difficulty",
 }
 
 def t(key):
@@ -570,7 +614,7 @@ def auto_match(sorular, ocler):
     for ci, i in enumerate(range(0, n, 20)):
         chunk = sorular[i:i+20]
         soru_listesi = "\n".join([f"{s['no']}. {s['text']}" for s in chunk])
-        prompt = f"""You are an academic assessment expert. Match each exam question to learning outcomes AND classify by Bloom's Taxonomy.
+        prompt = f"""You are an academic assessment expert. Match each exam question to learning outcomes AND classify by Bloom's Taxonomy AND difficulty.
 
 LEARNING OUTCOMES:
 {oc_listesi}
@@ -579,23 +623,29 @@ EXAM QUESTIONS:
 {soru_listesi}
 
 STRICT RULES:
-- Match EACH question to EXACTLY ONE outcome (single match, 100%)
-- ONLY assign multiple outcomes if the question EXPLICITLY covers 2+ distinct topics from different outcomes
-- When in doubt, pick the SINGLE best matching outcome
-- Percentages must sum to exactly 100 for each question
+- Match EACH question to EXACTLY ONE outcome (single match, 100%) by default.
+- ONLY assign multiple outcomes if the question EXPLICITLY and clearly covers 2+ distinct topics from different outcomes.
+- When in doubt, pick the SINGLE best matching outcome at 100%.
+- Percentages across all outcomes for a single question MUST sum to EXACTLY 100. No exceptions.
+- If 2 outcomes: percentages like 60+40, 70+30, 50+50. If 3: like 50+30+20. Always 100 total.
 
-BLOOM'S TAXONOMY (pick exactly one):
-- Remember: recall facts, definitions, lists (e.g. "What is X?", "Which method does Y?")
-- Understand: explain, describe, summarize concepts (e.g. "Explain how X works")
-- Apply: use knowledge in new situations, solve problems (e.g. "Which code does X?")
-- Analyze: break down, compare, differentiate (e.g. "Compare X and Y", "Why does X cause Y?")
-- Evaluate: judge, critique, justify decisions (e.g. "Which approach is better and why?")
+BLOOM'S TAXONOMY (pick exactly one per question):
+- Remember: recall facts, definitions, lists
+- Understand: explain, describe, summarize concepts
+- Apply: use knowledge in new situations, solve problems
+- Analyze: break down, compare, differentiate
+- Evaluate: judge, critique, justify decisions
 - Create: design, build, formulate something new
+
+DIFFICULTY (pick exactly one per question):
+- Easy: straightforward recall or recognition
+- Medium: requires understanding or simple application
+- Hard: requires analysis, evaluation, or creation
 
 Return ONLY valid JSON, no explanation:
 {{"matches":[
-  {{"q":1,"outcomes":[{{"lo":"LO-3","pct":100}}],"bloom":"Remember"}},
-  {{"q":2,"outcomes":[{{"lo":"LO-1","pct":60}},{{"lo":"LO-2","pct":40}}],"bloom":"Understand"}}
+  {{"q":1,"outcomes":[{{"lo":"LO-3","pct":100}}],"bloom":"Remember","difficulty":"Easy"}},
+  {{"q":2,"outcomes":[{{"lo":"LO-1","pct":60}},{{"lo":"LO-2","pct":40}}],"bloom":"Understand","difficulty":"Medium"}}
 ]}}"""
         try:
             raw = deepseek_chat([{"role":"user","content":prompt}], max_tokens=2048)
@@ -607,8 +657,17 @@ Return ONLY valid JSON, no explanation:
                     q_no = int(item.get("q", 0))
                     outcomes = item.get("outcomes", [])
                     bloom = str(item.get("bloom", "Remember"))
+                    difficulty = str(item.get("difficulty", "Medium"))
                     if q_no > 0 and outcomes:
-                        result[q_no] = {"outcomes": outcomes, "zorluk": bloom}
+                        # Normalize percentages to exactly 100
+                        total_pct = sum(o.get("pct", 0) for o in outcomes)
+                        if total_pct > 0 and total_pct != 100:
+                            for o in outcomes:
+                                o["pct"] = round(o.get("pct", 0) * 100 / total_pct)
+                            # Fix rounding drift on last item
+                            diff = 100 - sum(o["pct"] for o in outcomes)
+                            outcomes[-1]["pct"] += diff
+                        result[q_no] = {"outcomes": outcomes, "zorluk": bloom, "difficulty": difficulty}
         except Exception as e:
             st.warning(f"{t('batch')} {ci+1} error: {e}")
         progress.progress((ci+1)/chunks, text=f"{t('mapping')} ({ci+1}/{chunks})")
@@ -624,6 +683,8 @@ def build_rubrik(sorular, ocler, eslestirmeler, puan_esit, toplam_puan, ozel_pua
     from docx.oxml import OxmlElement
     from docx.enum.text import WD_ALIGN_PARAGRAPH
     from docx.enum.table import WD_TABLE_ALIGNMENT, WD_ALIGN_VERTICAL
+
+    is_tr = st.session_state.lang == "TR"
 
     KOYU_MOR = RGBColor(0x3B, 0x1F, 0x8C)
     MOR      = RGBColor(0x6D, 0x5C, 0xE7)
@@ -678,7 +739,7 @@ def build_rubrik(sorular, ocler, eslestirmeler, puan_esit, toplam_puan, ozel_pua
     p0.alignment = WD_ALIGN_PARAGRAPH.CENTER
     p0.paragraph_format.space_before = Pt(8)
     p0.paragraph_format.space_after  = Pt(4)
-    r0 = p0.add_run("SINAV RUBRİK FORMU")
+    r0 = p0.add_run("SINAV RUBRİK FORMU" if is_tr else "EXAM RUBRIC FORM")
     r0.bold      = True
     r0.font.size = Pt(16)
     r0.font.color.rgb = BEYAZ
@@ -731,7 +792,7 @@ def build_rubrik(sorular, ocler, eslestirmeler, puan_esit, toplam_puan, ozel_pua
     ph = doc.add_paragraph()
     ph.paragraph_format.space_before = Pt(4)
     ph.paragraph_format.space_after  = Pt(4)
-    rh = ph.add_run("Dersin Öğrenme Çıktıları")
+    rh = ph.add_run("Dersin Öğrenme Çıktıları" if is_tr else "Course Learning Outcomes")
     rh.bold = True
     rh.font.size = Pt(11)
     rh.font.color.rgb = KOYU_MOR
@@ -752,15 +813,25 @@ def build_rubrik(sorular, ocler, eslestirmeler, puan_esit, toplam_puan, ozel_pua
     pt = doc.add_paragraph()
     pt.paragraph_format.space_before = Pt(6)
     pt.paragraph_format.space_after  = Pt(4)
-    rt = pt.add_run("Tablo-1. Çoktan Seçmeli Sorular İçin Dereceli Puanlama Anahtarı")
+    rt = pt.add_run("Tablo-1. Çoktan Seçmeli Sorular İçin Dereceli Puanlama Anahtarı" if is_tr else "Table-1. Scoring Rubric for Multiple Choice Questions")
     rt.bold = True
     rt.font.size = Pt(11)
     rt.font.color.rgb = KOYU_MOR
     rt.font.name = "Arial"
 
     # ── ANA TABLO ───────────────────────────────────────────
-    headers = ["Soru No", "Puan", "Doğru", "Yanlış", "Ölçülen Kazanım", "Ders Öğrenme Çıktısı", "Bloom Taksonomisi"]
-    col_widths = [Cm(1.3), Cm(1.2), Cm(1.3), Cm(1.3), Cm(6.5), Cm(3.5), Cm(2.5)]
+    is_tr = st.session_state.lang == "TR"
+    headers = [
+        "Soru No" if is_tr else "Q No",
+        "Puan" if is_tr else "Score",
+        "Doğru" if is_tr else "Correct",
+        "Yanlış" if is_tr else "Wrong",
+        "Ölçülen Kazanım" if is_tr else "Question Text",
+        "Ders Öğrenme Çıktısı" if is_tr else "Learning Outcome",
+        t("bloom_col"),
+        t("diff_col"),
+    ]
+    col_widths = [Cm(1.3), Cm(1.2), Cm(1.3), Cm(1.3), Cm(5.5), Cm(3.0), Cm(2.5), Cm(2.0)]
 
     t2 = doc.add_table(rows=1+len(sorular)+1, cols=len(headers))
     t2.alignment = WD_TABLE_ALIGNMENT.CENTER
@@ -786,7 +857,8 @@ def build_rubrik(sorular, ocler, eslestirmeler, puan_esit, toplam_puan, ozel_pua
     for ri, s in enumerate(sorular):
         esl      = eslestirmeler.get(s["no"], {})
         outcomes = esl.get("outcomes", [])
-        bloom    = esl.get("zorluk", "")
+        bloom    = translate_bloom(esl.get("zorluk", ""))
+        difficulty = translate_diff(esl.get("difficulty", ""))
         oc_str   = ", ".join(f"{o['lo']}(%{o['pct']})" for o in outcomes) if outcomes else "—"
         puan     = get_puan(s["no"])
         bg       = "F5F4FF" if ri % 2 == 0 else "FFFFFF"
@@ -799,6 +871,7 @@ def build_rubrik(sorular, ocler, eslestirmeler, puan_esit, toplam_puan, ozel_pua
             (s["text"],    WD_ALIGN_PARAGRAPH.LEFT),
             (oc_str,       WD_ALIGN_PARAGRAPH.CENTER),
             (bloom,        WD_ALIGN_PARAGRAPH.CENTER),
+            (difficulty,   WD_ALIGN_PARAGRAPH.CENTER),
         ]
 
         for ci, (txt, align) in enumerate(row_data):
@@ -824,7 +897,9 @@ def build_rubrik(sorular, ocler, eslestirmeler, puan_esit, toplam_puan, ozel_pua
         p.alignment = WD_ALIGN_PARAGRAPH.CENTER
         p.paragraph_format.space_before = Pt(3)
         p.paragraph_format.space_after  = Pt(3)
-        text = "TOPLAM" if ci == 0 else (str(toplam_puan) if ci == 1 else "0" if ci == 3 else "")
+        text = (("TOPLAM" if is_tr else "TOTAL") if ci == 0 
+                else (str(toplam_puan) if ci == 1 
+                else ("0" if ci == 3 else "")))
         r = p.add_run(text)
         r.bold = True
         r.font.size = Pt(9)
@@ -834,7 +909,7 @@ def build_rubrik(sorular, ocler, eslestirmeler, puan_esit, toplam_puan, ozel_pua
     # ── DİPNOT ─────────────────────────────────────────────
     pd = doc.add_paragraph()
     pd.paragraph_format.space_before = Pt(8)
-    rd = pd.add_run("* Yanıt biçimi istenildiği takdirde alt detaylara bölünerek çoğaltılabilir.")
+    rd = pd.add_run("* Yanıt biçimi istenildiği takdirde alt detaylara bölünerek çoğaltılabilir." if is_tr else "* Response format can be subdivided into sub-details if required.")
     rd.italic = True
     rd.font.size = Pt(9)
     rd.font.color.rgb = GRI_YAZ
@@ -881,7 +956,9 @@ def build_excel(sorular, ocler, eslestirmeler, anahtar, puan_esit, toplam_puan, 
     for i in range(max_oc):
         headers1.append(f"DÇ Sıra {i+1}")
         headers1.append(f"Etki Oran {i+1}")
-    headers1 += ["BLOOM TAKSONOMİSİ", "ANSWER KEY"]
+    bloom_label = t("bloom_col")
+    diff_label  = t("diff_col")
+    headers1 += [bloom_label, diff_label, "ANSWER KEY"]
 
     for col, h in enumerate(headers1, 1):
         hstyle(ws1.cell(row=1, column=col, value=h))
@@ -889,7 +966,8 @@ def build_excel(sorular, ocler, eslestirmeler, anahtar, puan_esit, toplam_puan, 
     for ri, s in enumerate(sorular, 2):
         esl = eslestirmeler.get(s["no"], {})
         outcomes = esl.get("outcomes", [])
-        diff = esl.get("zorluk","")
+        diff = translate_bloom(esl.get("zorluk",""))
+        difficulty = translate_diff(esl.get("difficulty",""))
         key = anahtar[s["no"]-1] if anahtar and s["no"]-1 < len(anahtar) else "-"
         puan = get_puan(s["no"])
 
@@ -905,8 +983,9 @@ def build_excel(sorular, ocler, eslestirmeler, anahtar, puan_esit, toplam_puan, 
             ws1.cell(ri, cb+1, pct).alignment    = Alignment(horizontal="center")
 
         diff_col = 4 + max_oc*2
-        ws1.cell(ri, diff_col,   diff).alignment = Alignment(horizontal="center")
-        ws1.cell(ri, diff_col+1, key).alignment  = Alignment(horizontal="center")
+        ws1.cell(ri, diff_col,   diff).alignment       = Alignment(horizontal="center")
+        ws1.cell(ri, diff_col+1, difficulty).alignment = Alignment(horizontal="center")
+        ws1.cell(ri, diff_col+2, key).alignment        = Alignment(horizontal="center")
 
         if outcomes:
             for c in range(1, len(headers1)+1):
@@ -921,8 +1000,9 @@ def build_excel(sorular, ocler, eslestirmeler, anahtar, puan_esit, toplam_puan, 
     for i in range(max_oc):
         ws1.column_dimensions[get_column_letter(4+i*2)].width   = 10
         ws1.column_dimensions[get_column_letter(4+i*2+1)].width = 12
-    ws1.column_dimensions[get_column_letter(4+max_oc*2)].width   = 12
-    ws1.column_dimensions[get_column_letter(4+max_oc*2+1)].width = 12
+    ws1.column_dimensions[get_column_letter(4+max_oc*2)].width   = 18  # Bloom
+    ws1.column_dimensions[get_column_letter(4+max_oc*2+1)].width = 12  # Difficulty
+    ws1.column_dimensions[get_column_letter(4+max_oc*2+2)].width = 12  # Answer Key
     ws1.freeze_panes = "A2"
     add_borders(ws1, 1, len(sorular)+1, 1, len(headers1))
 
@@ -955,7 +1035,8 @@ def build_excel(sorular, ocler, eslestirmeler, anahtar, puan_esit, toplam_puan, 
     for i in range(max_oc):
         headers3.append(f"DÇ Sıra {i+1}")
         headers3.append(f"Etki Oran {i+1}")
-    headers3.append("Bloom Taksonomisi")
+    headers3.append(t("bloom_col"))
+    headers3.append(t("diff_col"))
 
     for col, h in enumerate(headers3, 1):
         hstyle(ws3.cell(row=1, column=col, value=h))
@@ -978,8 +1059,10 @@ def build_excel(sorular, ocler, eslestirmeler, anahtar, puan_esit, toplam_puan, 
 
         # Bloom sütunu
         bloom_col = 4 + max_oc*2 + 1
-        bloom_val = esl.get("zorluk", "")
-        ws3.cell(ri, bloom_col, bloom_val).alignment = Alignment(horizontal="center")
+        bloom_val = translate_bloom(esl.get("zorluk", ""))
+        diff_val  = translate_diff(esl.get("difficulty", ""))
+        ws3.cell(ri, bloom_col,   bloom_val).alignment = Alignment(horizontal="center")
+        ws3.cell(ri, bloom_col+1, diff_val).alignment  = Alignment(horizontal="center")
 
         if outcomes:
             for c in range(1, len(headers3)+1):
@@ -994,6 +1077,9 @@ def build_excel(sorular, ocler, eslestirmeler, anahtar, puan_esit, toplam_puan, 
     for i in range(max_oc):
         ws3.column_dimensions[get_column_letter(4+i*2)].width   = 10
         ws3.column_dimensions[get_column_letter(4+i*2+1)].width = 12
+    bloom_col3 = 4 + max_oc*2 + 1
+    ws3.column_dimensions[get_column_letter(bloom_col3)].width   = 18  # Bloom
+    ws3.column_dimensions[get_column_letter(bloom_col3+1)].width = 12  # Difficulty
     ws3.freeze_panes = "A2"
     add_borders(ws3, 1, len(sorular)+1, 1, len(headers3))
 
