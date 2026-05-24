@@ -473,10 +473,9 @@ with st.sidebar:
             st.session_state.lang = lang
             st.rerun()
     with dark_col:
-        mode_label = "🌙 Dark" if not st.session_state.dark else "☀️ Light"
-        dark = st.toggle(mode_label, value=st.session_state.dark)
-        if dark != st.session_state.dark:
-            st.session_state.dark = dark
+        mode_label = "☀️ Light" if st.session_state.dark else "🌙 Dark"
+        if st.button(mode_label, key="theme_toggle", use_container_width=True):
+            st.session_state.dark = not st.session_state.dark
             st.rerun()
 
     st.markdown("---")
