@@ -66,23 +66,18 @@ def deepseek_chat(messages: list, max_tokens=4096) -> str:
     return resp.json()["choices"][0]["message"]["content"].strip()
 
 def deepseek_vision(img_bytes: bytes, mime: str, prompt: str) -> str:
-    api_key = st.secrets["DEEPSEEK_API_KEY"]
-    b64 = base64.b64encode(img_bytes).decode()
-    resp = requests.post(
-        DEEPSEEK_URL,
-        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-        json={
-            "model": "deepseek-chat",
-            "messages": [{"role": "user", "content": [
-                {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{b64}"}},
-                {"type": "text", "text": prompt}
-            ]}],
-            "max_tokens": 2000
-        },
-        timeout=60
-    )
-    resp.raise_for_status()
-    return resp.json()["choices"][0]["message"]["content"].strip()
+    """DeepSeek gorsel desteklemez — pytesseract ile metni cikar, sonra DeepSeek'e gonder"""
+    try:
+        from PIL import Image
+        import pytesseract
+        img = Image.open(io.BytesIO(img_bytes))
+        text = pytesseract.image_to_string(img, lang="tur+eng")
+        if not text.strip():
+            raise ValueError("Resimden metin okunamadi")
+        full_prompt = f"{prompt}\n\nResimden okunan metin:\n{text[:3000]}"
+        return deepseek_chat([{"role": "user", "content": full_prompt}], max_tokens=2000)
+    except ImportError:
+        raise Exception("Resimden ÖÇ okuma için pytesseract gerekli. Lütfen ÖÇ'leri elle girin.")
 
 # ── OTOMATİK EŞLEŞTİRME ──────────────────────────────────────
 def auto_match(sorular: list, ocler: list) -> dict:
@@ -380,19 +375,22 @@ elif st.session_state.step == 2:
             else: st.warning("Please fill in both fields.")
 
     st.markdown("---")
-    st.markdown("**📷 Auto-read from outcome list photo:**")
-    oc_img = st.file_uploader("Outcome image", type=["jpg","jpeg","png","webp"], label_visibility="collapsed")
-    if oc_img:
-        with st.spinner("Reading outcomes from image..."):
-            try:
-                new_ocler = read_oc_from_image(oc_img.read(), oc_img.type)
-                added = 0
-                for oc in new_ocler:
-                    if not any(o["no"]==oc["no"] for o in st.session_state.ocler):
-                        st.session_state.ocler.append(oc); added += 1
-                st.success(f"✅ {added} outcomes added!"); st.rerun()
-            except Exception as e:
-                st.error(f"❌ {e}")
+    st.info("💡 **Tip:** You can also paste multiple outcomes at once below (one per line: `LO-1: definition`)"  )
+    bulk = st.text_area("Bulk add outcomes (LO-1: definition, one per line)", height=100, label_visibility="collapsed", placeholder="LO-1: Explains machine learning algorithms\nLO-2: Applies supervised learning methods\nLO-3: Evaluates model performance")
+    if st.button("➕ Add All", use_container_width=True):
+        added = 0
+        for line in bulk.strip().split("\n"):
+            line = line.strip()
+            if ":" in line:
+                parts = line.split(":", 1)
+                no = parts[0].strip()
+                tanim = parts[1].strip()
+                if no and tanim and not any(o["no"]==no for o in st.session_state.ocler):
+                    st.session_state.ocler.append({"no": no, "tanim": tanim})
+                    added += 1
+        if added:
+            st.success(f"✅ {added} outcomes added!")
+            st.rerun()
 
     st.markdown("---")
     if st.session_state.ocler:
