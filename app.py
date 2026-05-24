@@ -155,9 +155,25 @@ def get_css(dark):
     header[data-testid="stHeader"] { display: none !important; }
     #MainMenu { display: none !important; }
     footer { display: none !important; }
-    /* File uploader çift label fix */
+    /* File uploader fix */
     div[data-testid="stFileUploader"] label { display: none !important; }
-    div[data-testid="stFileUploaderDropzoneInstructions"] { font-family: 'JetBrains Mono', monospace !important; }
+    div[data-testid="stFileUploaderDropzone"] button {
+        font-family: 'JetBrains Mono', monospace !important;
+        font-size: 0.85rem !important;
+        width: 100% !important;
+    }
+    div[data-testid="stFileUploaderDropzone"] {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        padding: 20px !important;
+        border-radius: 10px !important;
+    }
+    /* Buton içindeki span'lar üst üste gelmesin */
+    div[data-testid="stFileUploaderDropzone"] button span {
+        position: static !important;
+        display: inline !important;
+    }
     /* Butonlar */
     .stButton > button { border-radius: 8px !important; font-weight: 600 !important; transition: all 0.2s !important; }
     .stButton > button[kind="primary"] {
