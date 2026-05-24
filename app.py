@@ -446,7 +446,7 @@ with st.sidebar:
     st.markdown("---")
 
     # Dil & Tema
-    lang_col, dark_col = st.columns([2, 1])
+    lang_col, dark_col = st.columns([3, 2])
     with lang_col:
         lang = st.radio("🌐", ["TR","EN"], index=0 if st.session_state.lang=="TR" else 1,
                        horizontal=True, label_visibility="collapsed")
@@ -454,7 +454,8 @@ with st.sidebar:
             st.session_state.lang = lang
             st.rerun()
     with dark_col:
-        dark = st.toggle("🌙", value=st.session_state.dark, label_visibility="collapsed")
+        mode_label = "🌙 Dark" if not st.session_state.dark else "☀️ Light"
+        dark = st.toggle(mode_label, value=st.session_state.dark)
         if dark != st.session_state.dark:
             st.session_state.dark = dark
             st.rerun()
