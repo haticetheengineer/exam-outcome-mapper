@@ -5,66 +5,380 @@ import io
 import requests
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from openpyxl.utils import get_column_letter
 
-st.set_page_config(page_title="Exam Outcome Mapper", page_icon="📋", layout="centered")
+st.set_page_config(
+    page_title="Exam Outcome Mapper",
+    page_icon="📋",
+    layout="centered",
+    initial_sidebar_state="expanded"
+)
 
-st.markdown("""
-<style>
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
-html, body, [class*="css"] { font-family: 'IBM Plex Sans', sans-serif; }
-.header {
-    background: linear-gradient(135deg, #1a3a6b, #2c5aa0);
-    color: white; padding: 20px; border-radius: 10px; margin-bottom: 24px; text-align: center;
+# ── SESSION STATE ─────────────────────────────────────────────
+for k, v in {
+    "logged_in": False,
+    "lang": "TR",
+    "dark": False,
+}.items():
+    if k not in st.session_state:
+        st.session_state[k] = v
+
+# ── DİL ──────────────────────────────────────────────────────
+TR = {
+    "title": "Sınav ÖÇ Eşleştirme",
+    "subtitle": "Kapadokya Üniversitesi — Akreditasyon Rapor Sistemi",
+    "login": "Giriş Yap",
+    "username": "Kullanıcı Adı",
+    "password": "Şifre",
+    "username_ph": "Kullanıcı adınızı girin",
+    "password_ph": "Şifrenizi girin",
+    "login_btn": "Giriş Yap",
+    "login_err": "❌ Hatalı kullanıcı adı veya şifre",
+    "start_over": "🔄 Yeniden Başla",
+    "logout": "🚪 Çıkış",
+    "step1": "📂 Adım 1 — Sınav Dosyası Yükle",
+    "step1_sub": "TXT, DOCX veya PDF",
+    "step1_ok": "soru bulundu",
+    "step1_err": "❌ Soru bulunamadı. Sorular '?' ile bitmelidir.",
+    "preview": "Önizleme",
+    "step2": "🎯 Adım 2 — Öğrenim Çıktıları",
+    "tab_pdf": "📄 PDF'den Çıkar",
+    "tab_manual": "✏️ Elle Gir",
+    "pdf_info": "Bilgi Paketi PDF yükleyin — ÖÇ'ler otomatik çıkarılır.",
+    "pdf_upload": "Bilgi Paketi PDF",
+    "pdf_ok": "ÖÇ çıkarıldı",
+    "pdf_err": "❌ ÖÇ bulunamadı",
+    "manual_info": "💡 Her satıra: `LO-1: tanım`",
+    "manual_ph": "LO-1: Makine öğrenmesi algoritmalarını açıklar\nLO-2: Yöntemleri uygular",
+    "outcomes_ok": "öğrenim çıktısı tanımlandı",
+    "step3": "💯 Adım 3 — Puanlama",
+    "total_pts": "Toplam sınav puanı",
+    "scoring_type": "Soru puanlama",
+    "equal": "Eşit (otomatik)",
+    "custom": "Özel (soru bazlı)",
+    "enter_scores": "Her soru için puan girin:",
+    "total_warn": "⚠️ Toplam:",
+    "total_ok": "✅ Toplam:",
+    "answer_key": "📝 Cevap Anahtarı (opsiyonel)",
+    "answer_ph": "ABCDEABCDE...",
+    "step4": "📊 Adım 4 — Rapor Oluştur",
+    "ready_equal": "Hazır:",
+    "ready_pts": "puan/soru",
+    "ready_custom": "özel puanlama",
+    "questions": "soru",
+    "outcomes": "çıktı",
+    "map_btn": "🚀 AI ile Eşleştir ve Excel Oluştur",
+    "mapped_ok": "soru eşleştirildi",
+    "multi_match": "birden fazla ÖÇ ile eşleşti",
+    "download": "⬇ Excel Raporu İndir (.xlsx)",
+    "no_exam": "⬆ Önce sınav dosyası yükleyin",
+    "no_oc": "⬆ Önce öğrenim çıktılarını tanımlayın",
+    "extracting": "Sorular çıkarılıyor...",
+    "oc_extracting": "ÖÇ'ler çıkarılıyor...",
+    "mapping": "Eşleştirme yapılıyor...",
+    "batch": "Batch",
 }
-.header h1 { margin:0; font-size:1.4rem; }
-.header p  { margin:6px 0 0; font-size:0.8rem; opacity:0.8; }
-.login-box {
-    background: white; border: 1px solid #e0e0e0; border-radius: 12px;
-    padding: 32px; max-width: 400px; margin: 60px auto;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+
+EN = {
+    "title": "Exam Outcome Mapper",
+    "subtitle": "Kapadokya University — Accreditation Report System",
+    "login": "Login",
+    "username": "Username",
+    "password": "Password",
+    "username_ph": "Enter username",
+    "password_ph": "Enter password",
+    "login_btn": "Login",
+    "login_err": "❌ Invalid username or password",
+    "start_over": "🔄 Start Over",
+    "logout": "🚪 Logout",
+    "step1": "📂 Step 1 — Upload Exam File",
+    "step1_sub": "TXT, DOCX or PDF",
+    "step1_ok": "questions found",
+    "step1_err": "❌ No questions found. Questions must end with '?'",
+    "preview": "Preview",
+    "step2": "🎯 Step 2 — Learning Outcomes",
+    "tab_pdf": "📄 Extract from PDF",
+    "tab_manual": "✏️ Enter Manually",
+    "pdf_info": "Upload Bilgi Paketi PDF — outcomes extracted automatically.",
+    "pdf_upload": "Bilgi Paketi PDF",
+    "pdf_ok": "outcomes extracted",
+    "pdf_err": "❌ No outcomes found",
+    "manual_info": "💡 One per line: `LO-1: definition`",
+    "manual_ph": "LO-1: Explains ML algorithms\nLO-2: Applies methods",
+    "outcomes_ok": "outcomes defined",
+    "step3": "💯 Step 3 — Scoring",
+    "total_pts": "Total exam points",
+    "scoring_type": "Question scoring",
+    "equal": "Equal (auto)",
+    "custom": "Custom per question",
+    "enter_scores": "Enter score for each question:",
+    "total_warn": "⚠️ Total:",
+    "total_ok": "✅ Total:",
+    "answer_key": "📝 Answer Key (optional)",
+    "answer_ph": "ABCDEABCDE...",
+    "step4": "📊 Step 4 — Generate Report",
+    "ready_equal": "Ready:",
+    "ready_pts": "pts each",
+    "ready_custom": "custom scoring",
+    "questions": "questions",
+    "outcomes": "outcomes",
+    "map_btn": "🚀 Map with AI & Generate Excel",
+    "mapped_ok": "questions mapped",
+    "multi_match": "matched to multiple outcomes",
+    "download": "⬇ Download Excel Report (.xlsx)",
+    "no_exam": "⬆ Upload an exam file first",
+    "no_oc": "⬆ Define learning outcomes first",
+    "extracting": "Extracting questions...",
+    "oc_extracting": "Extracting outcomes...",
+    "mapping": "Mapping with AI...",
+    "batch": "Batch",
 }
-</style>
-""", unsafe_allow_html=True)
+
+def t(key):
+    d = TR if st.session_state.lang == "TR" else EN
+    return d.get(key, key)
+
+# ── TEMA CSS ──────────────────────────────────────────────────
+def get_css(dark):
+    if dark:
+        return """
+        <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+        :root {
+            --bg: #0f1117;
+            --surface: #1a1d27;
+            --surface2: #22263a;
+            --border: #2e3247;
+            --accent: #7c6af7;
+            --accent2: #5eead4;
+            --text: #e8eaf6;
+            --muted: #8892b0;
+            --success: #64ffda;
+            --warning: #ffd166;
+            --error: #ff6b6b;
+            --radius: 12px;
+        }
+        html, body, [class*="css"] {
+            font-family: 'Plus Jakarta Sans', sans-serif !important;
+            background-color: var(--bg) !important;
+            color: var(--text) !important;
+        }
+        .stApp { background: var(--bg) !important; }
+        .block-container { padding-top: 1rem !important; }
+        .app-header {
+            background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4c1d95 100%);
+            border: 1px solid #4338ca44;
+            padding: 28px 32px; border-radius: 16px;
+            margin-bottom: 28px; text-align: center;
+            box-shadow: 0 8px 32px rgba(124,106,247,0.2);
+        }
+        .app-header h1 { margin:0; font-size:1.6rem; font-weight:800; color:#e0e7ff; letter-spacing:-0.5px; }
+        .app-header p  { margin:6px 0 0; font-size:0.82rem; color:#a5b4fc; }
+        .section-title {
+            font-size:0.72rem; font-weight:700; letter-spacing:2px;
+            text-transform:uppercase; color: var(--accent);
+            margin-bottom:14px; display:flex; align-items:center; gap:8px;
+        }
+        .section-title::after {
+            content:''; flex:1; height:1px; background: var(--border);
+        }
+        div[data-testid="stFileUploader"] {
+            background: var(--surface2) !important;
+            border: 1.5px dashed var(--border) !important;
+            border-radius: var(--radius) !important;
+        }
+        .stButton>button {
+            border-radius: 8px !important;
+            font-weight: 600 !important;
+            transition: all 0.2s !important;
+        }
+        .stButton>button[kind="primary"] {
+            background: linear-gradient(135deg, #7c6af7, #6d28d9) !important;
+            border: none !important;
+            box-shadow: 0 4px 15px rgba(124,106,247,0.4) !important;
+        }
+        .stButton>button[kind="primary"]:hover {
+            transform: translateY(-2px) !important;
+            box-shadow: 0 6px 20px rgba(124,106,247,0.5) !important;
+        }
+        .stTextInput>div>div>input, .stTextArea>div>div>textarea, .stNumberInput>div>div>input {
+            background: var(--surface2) !important;
+            border: 1.5px solid var(--border) !important;
+            border-radius: 8px !important;
+            color: var(--text) !important;
+        }
+        .stTabs [data-baseweb="tab-list"] {
+            background: var(--surface) !important;
+            border-radius: 10px !important;
+            padding: 4px !important;
+        }
+        .stTabs [data-baseweb="tab"] {
+            border-radius: 8px !important;
+            color: var(--muted) !important;
+        }
+        .stTabs [aria-selected="true"] {
+            background: var(--surface2) !important;
+            color: var(--text) !important;
+        }
+        [data-testid="stSidebar"] {
+            background: var(--surface) !important;
+            border-right: 1px solid var(--border) !important;
+        }
+        .stAlert { border-radius: 10px !important; }
+        hr { border-color: var(--border) !important; }
+        .login-wrap {
+            max-width:380px; margin:60px auto;
+            background: var(--surface); border:1px solid var(--border);
+            border-radius:16px; padding:36px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+        }
+        .login-wrap h2 { color:var(--text); text-align:center; margin-bottom:24px; font-size:1.2rem; }
+        </style>"""
+    else:
+        return """
+        <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+        :root {
+            --bg: #f8f7ff;
+            --surface: #ffffff;
+            --surface2: #f1f0ff;
+            --border: #e2e0f0;
+            --accent: #6d5ce7;
+            --accent2: #0ea5a0;
+            --text: #1a1640;
+            --muted: #6e6c8e;
+            --success: #059669;
+            --warning: #d97706;
+            --error: #dc2626;
+            --radius: 12px;
+        }
+        html, body, [class*="css"] {
+            font-family: 'Plus Jakarta Sans', sans-serif !important;
+            background-color: var(--bg) !important;
+            color: var(--text) !important;
+        }
+        .stApp { background: var(--bg) !important; }
+        .block-container { padding-top: 1rem !important; }
+        .app-header {
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #9333ea 100%);
+            padding: 28px 32px; border-radius: 16px;
+            margin-bottom: 28px; text-align: center;
+            box-shadow: 0 8px 32px rgba(109,92,231,0.25);
+        }
+        .app-header h1 { margin:0; font-size:1.6rem; font-weight:800; color:white; letter-spacing:-0.5px; }
+        .app-header p  { margin:6px 0 0; font-size:0.82rem; color:rgba(255,255,255,0.75); }
+        .section-title {
+            font-size:0.72rem; font-weight:700; letter-spacing:2px;
+            text-transform:uppercase; color: var(--accent);
+            margin-bottom:14px; display:flex; align-items:center; gap:8px;
+        }
+        .section-title::after {
+            content:''; flex:1; height:1px; background: var(--border);
+        }
+        .stButton>button {
+            border-radius: 8px !important;
+            font-weight: 600 !important;
+            transition: all 0.2s !important;
+        }
+        .stButton>button[kind="primary"] {
+            background: linear-gradient(135deg, #6d5ce7, #7c3aed) !important;
+            border: none !important;
+            box-shadow: 0 4px 15px rgba(109,92,231,0.35) !important;
+        }
+        .stButton>button[kind="primary"]:hover {
+            transform: translateY(-2px) !important;
+            box-shadow: 0 6px 20px rgba(109,92,231,0.45) !important;
+        }
+        .stTextInput>div>div>input, .stTextArea>div>div>textarea, .stNumberInput>div>div>input {
+            background: var(--surface) !important;
+            border: 1.5px solid var(--border) !important;
+            border-radius: 8px !important;
+            color: var(--text) !important;
+        }
+        .stTabs [data-baseweb="tab-list"] {
+            background: var(--surface2) !important;
+            border-radius: 10px !important;
+            padding: 4px !important;
+        }
+        .stTabs [data-baseweb="tab"] {
+            border-radius: 8px !important;
+            color: var(--muted) !important;
+        }
+        .stTabs [aria-selected="true"] {
+            background: white !important;
+            color: var(--text) !important;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08) !important;
+        }
+        [data-testid="stSidebar"] {
+            background: var(--surface) !important;
+            border-right: 1px solid var(--border) !important;
+        }
+        .stAlert { border-radius: 10px !important; }
+        hr { border-color: var(--border) !important; }
+        .login-wrap {
+            max-width:380px; margin:60px auto;
+            background: white; border:1px solid var(--border);
+            border-radius:16px; padding:36px;
+            box-shadow: 0 8px 32px rgba(109,92,231,0.12);
+        }
+        .login-wrap h2 { color:var(--text); text-align:center; margin-bottom:24px; font-size:1.2rem; }
+        </style>"""
+
+st.markdown(get_css(st.session_state.dark), unsafe_allow_html=True)
 
 # ── LOGIN ─────────────────────────────────────────────────────
-if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
-
 if not st.session_state.logged_in:
-    st.markdown("""<div class='header'>
-        <h1>📋 Exam Outcome Mapper</h1>
-        <p>Kapadokya University — Accreditation Report System</p>
+    st.markdown(f"""<div class='app-header'>
+        <h1>📋 {t('title')}</h1>
+        <p>{t('subtitle')}</p>
     </div>""", unsafe_allow_html=True)
-    with st.container():
-        st.markdown("### 🔐 Login")
-        username = st.text_input("Username", placeholder="Enter username")
-        password = st.text_input("Password", type="password", placeholder="Enter password")
-        if st.button("Login", type="primary", use_container_width=True):
+
+    col_l, col_m, col_r = st.columns([1,2,1])
+    with col_m:
+        st.markdown(f"### 🔐 {t('login')}")
+        username = st.text_input(t("username"), placeholder=t("username_ph"))
+        password = st.text_input(t("password"), type="password", placeholder=t("password_ph"))
+        if st.button(t("login_btn"), type="primary", use_container_width=True):
             if username == st.secrets.get("APP_USERNAME","admin") and password == st.secrets.get("APP_PASSWORD","admin123"):
                 st.session_state.logged_in = True
                 st.rerun()
             else:
-                st.error("❌ Invalid username or password")
+                st.error(t("login_err"))
     st.stop()
-
-# ── HEADER ────────────────────────────────────────────────────
-st.markdown("""<div class='header'>
-    <h1>📋 Exam Outcome Mapper</h1>
-    <p>Kapadokya University — Accreditation Report System</p>
-</div>""", unsafe_allow_html=True)
 
 # ── SIDEBAR ───────────────────────────────────────────────────
 with st.sidebar:
-    st.markdown("### 📋 Exam Outcome Mapper")
+    st.markdown(f"### 📋 {t('title')}")
+    st.markdown("---")
+
+    # Dil & Tema
+    c1, c2 = st.columns(2)
+    with c1:
+        lang = st.radio("🌐", ["TR","EN"], index=0 if st.session_state.lang=="TR" else 1, horizontal=True, label_visibility="collapsed")
+        if lang != st.session_state.lang:
+            st.session_state.lang = lang
+            st.rerun()
+    with c2:
+        dark = st.toggle("🌙", value=st.session_state.dark)
+        if dark != st.session_state.dark:
+            st.session_state.dark = dark
+            st.rerun()
+
     st.markdown("---")
     st.markdown(f"👤 **{st.secrets.get('APP_USERNAME','admin')}**")
-    if st.button("🔄 Start Over", use_container_width=True):
+    if st.button(t("start_over"), use_container_width=True):
         st.rerun()
-    if st.button("🚪 Logout", use_container_width=True):
+    if st.button(t("logout"), use_container_width=True):
         st.session_state.logged_in = False
         st.rerun()
     st.markdown("---")
-    st.markdown("<small style='color:#aaa'>Kapadokya University<br>🤖 DeepSeek AI</small>", unsafe_allow_html=True)
+    st.markdown("<small style='color:#888'>Kapadokya University<br>🤖 DeepSeek AI</small>", unsafe_allow_html=True)
+
+# ── HEADER ────────────────────────────────────────────────────
+st.markdown(f"""<div class='app-header'>
+    <h1>📋 {t('title')}</h1>
+    <p>{t('subtitle')}</p>
+</div>""", unsafe_allow_html=True)
 
 # ── DEEPSEEK ──────────────────────────────────────────────────
 DEEPSEEK_URL = "https://api.deepseek.com/chat/completions"
@@ -82,8 +396,6 @@ def deepseek_chat(messages, max_tokens=4096):
 # ── SORU ÇIKARMA ──────────────────────────────────────────────
 def extract_questions(text):
     sorular = []
-
-    # Format 1: Numaralı + "?" (normal döküman)
     pattern1 = r'(\d{1,3}[\.\)]\s*)([\s\S]*?\?)'
     for idx, (_, soru) in enumerate(re.findall(pattern1, text), 1):
         soru = re.sub(r'\s+', ' ', soru.strip())
@@ -91,8 +403,6 @@ def extract_questions(text):
             sorular.append({"no": idx, "text": soru})
     if sorular:
         return sorular
-
-    # Format 2: "Soru X." tablo formatı
     pattern2 = r'Soru\s+(\d+)\.\s+(.*?)(?=Soru\s+\d+\.|$)'
     for no_str, metin in re.findall(pattern2, text, re.DOTALL):
         metin = re.sub(r'\n\s*[A-E]\)\s.*', '', metin)
@@ -103,15 +413,12 @@ def extract_questions(text):
             sorular.append({"no": int(no_str), "text": metin})
     if sorular:
         return sorular
-
-    # Format 3: Satır sonu "?"
     for idx, line in enumerate(text.split('\n'), 1):
         line = line.strip()
         if line.endswith('?') and len(line) > 8:
             sorular.append({"no": idx, "text": line})
     return sorular
 
-# ── ÖÇ PDF ÇIKARMA ───────────────────────────────────────────
 def extract_oc_from_pdf(pdf_bytes):
     import pypdf
     text = "\n".join(p.extract_text() or "" for p in pypdf.PdfReader(io.BytesIO(pdf_bytes)).pages)
@@ -127,19 +434,16 @@ TEXT: {text[:8000]}"""
         return [{"no": o["no"], "tanim": o["definition"]} for o in data.get("outcomes", [])]
     return []
 
-# ── OTOMATİK EŞLEŞTİRME (çoklu ÖÇ destekli) ─────────────────
 def auto_match(sorular, ocler):
-    """Her soruyu 1 veya birden fazla ÖÇ ile eşleştir, yüzdelerini belirle"""
     oc_listesi = "\n".join([f"- {o['no']}: {o['tanim']}" for o in ocler])
     result = {}
     n = len(sorular)
     chunks = (n + 19) // 20
-    progress = st.progress(0, text="AI mapping...")
+    progress = st.progress(0, text=f"{t('mapping')} (1/{chunks})")
 
     for ci, i in enumerate(range(0, n, 20)):
         chunk = sorular[i:i+20]
         soru_listesi = "\n".join([f"{s['no']}. {s['text']}" for s in chunk])
-
         prompt = f"""You are an academic assessment expert. Match each exam question to learning outcomes.
 A question CAN match multiple outcomes if it covers multiple topics.
 
@@ -160,7 +464,6 @@ Return ONLY valid JSON:
   {{"q":1,"outcomes":[{{"lo":"LO-3","pct":100}}],"difficulty":"Medium"}},
   {{"q":2,"outcomes":[{{"lo":"LO-1","pct":60}},{{"lo":"LO-2","pct":40}}],"difficulty":"Easy"}}
 ]}}"""
-
         try:
             raw = deepseek_chat([{"role":"user","content":prompt}], max_tokens=2048)
             raw = re.sub(r'```json|```','',raw).strip()
@@ -174,52 +477,45 @@ Return ONLY valid JSON:
                     if q_no > 0 and outcomes:
                         result[q_no] = {"outcomes": outcomes, "zorluk": diff}
         except Exception as e:
-            st.warning(f"Batch {ci+1} error: {e}")
-
-        progress.progress((ci+1)/chunks, text=f"Batch {ci+1}/{chunks}...")
+            st.warning(f"{t('batch')} {ci+1} error: {e}")
+        progress.progress((ci+1)/chunks, text=f"{t('mapping')} ({ci+1}/{chunks})")
 
     progress.empty()
     return result
 
-# ── EXCEL OLUŞTURMA ───────────────────────────────────────────
 def build_excel(sorular, ocler, eslestirmeler, anahtar, puan_esit, toplam_puan, ozel_puanlar):
     wb = Workbook()
-    BLUE="1A3A6B"; GREEN="1E6B3A"; GREEN_L="E8F5ED"
-    RED="C0392B"; GRAY="F5F5F5"; WHITE="FFFFFF"; YELLOW="FFF9C4"
+    PURPLE="5B4FCF"; TEAL="0F766E"; GREEN_L="F0FDF4"
+    GRAY="F8F7FF"; WHITE="FFFFFF"; DARK="1A1640"
 
-    def hstyle(cell, bg=BLUE):
+    def hstyle(cell, bg=PURPLE):
         cell.font = Font(bold=True, color=WHITE, size=10)
         cell.fill = PatternFill("solid", fgColor=bg)
         cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
 
-    def borders(ws, r1, r2, c1, c2):
-        t = Side(style="thin", color="CCCCCC")
+    def add_borders(ws, r1, r2, c1, c2):
+        t = Side(style="thin", color="E2E0F0")
         for row in ws.iter_rows(min_row=r1, max_row=r2, min_col=c1, max_col=c2):
             for cell in row:
                 cell.border = Border(left=t, right=t, top=t, bottom=t)
 
-    oc_map = {o["no"]: o["tanim"] for o in ocler}
-    oc_no_to_idx = {o["no"]: i+1 for i, o in enumerate(ocler)}  # LO-1 → 1, LO-2 → 2
+    oc_no_to_idx = {o["no"]: i+1 for i, o in enumerate(ocler)}
 
-    # Soru puanı hesapla
-    n = len(sorular)
     def get_puan(soru_no):
         if puan_esit:
-            return round(toplam_puan / n, 2)
-        return ozel_puanlar.get(soru_no, round(toplam_puan / n, 2))
+            return round(toplam_puan / len(sorular), 2)
+        return ozel_puanlar.get(soru_no, round(toplam_puan / len(sorular), 2))
 
-    # ─── SAYFA 1: Question-LO Mapping (Proliz formatında) ───
+    max_oc = max((len(eslestirmeler.get(s["no"],{}).get("outcomes",[])) for s in sorular), default=1)
+    max_oc = max(max_oc, 1)
+
+    # ─── SAYFA 1: Question-LO Mapping ───────────────────────
     ws1 = wb.active
     ws1.title = "Question-LO Mapping"
-    ws1.row_dimensions[1].height = 32
+    ws1.row_dimensions[1].height = 36
 
-    # Maksimum kaç ÖÇ eşleşmesi var?
-    max_oc1 = max((len(eslestirmeler.get(s["no"],{}).get("outcomes",[])) for s in sorular), default=1)
-    max_oc1 = max(max_oc1, 1)
-
-    # Header: Q NO | SCORE | QUESTION | DÇ Sıra 1 | Etki Oran 1 | ... | DIFFICULTY | ANSWER KEY
     headers1 = ["Q NO", "SCORE", "QUESTION"]
-    for i in range(max_oc1):
+    for i in range(max_oc):
         headers1.append(f"DÇ Sıra {i+1}")
         headers1.append(f"Etki Oran {i+1}")
     headers1 += ["DIFFICULTY", "ANSWER KEY"]
@@ -234,9 +530,9 @@ def build_excel(sorular, ocler, eslestirmeler, anahtar, puan_esit, toplam_puan, 
         key = anahtar[s["no"]-1] if anahtar and s["no"]-1 < len(anahtar) else "-"
         puan = get_puan(s["no"])
 
-        ws1.cell(ri,1,s["no"]).alignment  = Alignment(horizontal="center")
-        ws1.cell(ri,2,puan).alignment     = Alignment(horizontal="center")
-        ws1.cell(ri,3,s["text"]).alignment= Alignment(wrap_text=True, vertical="top")
+        ws1.cell(ri,1,s["no"]).alignment = Alignment(horizontal="center")
+        ws1.cell(ri,2,puan).alignment    = Alignment(horizontal="center")
+        ws1.cell(ri,3,s["text"]).alignment = Alignment(wrap_text=True, vertical="top")
 
         for i, outcome in enumerate(outcomes):
             lo_idx = oc_no_to_idx.get(outcome.get("lo",""), "")
@@ -245,36 +541,33 @@ def build_excel(sorular, ocler, eslestirmeler, anahtar, puan_esit, toplam_puan, 
             ws1.cell(ri, cb,   lo_idx).alignment = Alignment(horizontal="center")
             ws1.cell(ri, cb+1, pct).alignment    = Alignment(horizontal="center")
 
-        diff_col = 4 + max_oc1*2
-        key_col  = diff_col + 1
-        ws1.cell(ri, diff_col, diff).alignment = Alignment(horizontal="center")
-        ws1.cell(ri, key_col,  key).alignment  = Alignment(horizontal="center")
+        diff_col = 4 + max_oc*2
+        ws1.cell(ri, diff_col,   diff).alignment = Alignment(horizontal="center")
+        ws1.cell(ri, diff_col+1, key).alignment  = Alignment(horizontal="center")
 
-        total_cols = len(headers1)
         if outcomes:
-            for c in range(1, total_cols+1):
-                ws1.cell(ri,c).fill = PatternFill("solid", fgColor=GREEN_L)
+            for c in range(1, len(headers1)+1):
+                ws1.cell(ri,c).fill = PatternFill("solid", fgColor="EDE9FE")
         elif ri%2==0:
-            for c in range(1, total_cols+1):
+            for c in range(1, len(headers1)+1):
                 ws1.cell(ri,c).fill = PatternFill("solid", fgColor=GRAY)
 
     ws1.column_dimensions["A"].width = 8
     ws1.column_dimensions["B"].width = 8
     ws1.column_dimensions["C"].width = 58
-    for i in range(max_oc1):
-        from openpyxl.utils import get_column_letter
+    for i in range(max_oc):
         ws1.column_dimensions[get_column_letter(4+i*2)].width   = 10
         ws1.column_dimensions[get_column_letter(4+i*2+1)].width = 12
-    ws1.column_dimensions[get_column_letter(4+max_oc1*2)].width   = 12
-    ws1.column_dimensions[get_column_letter(4+max_oc1*2+1)].width = 12
+    ws1.column_dimensions[get_column_letter(4+max_oc*2)].width   = 12
+    ws1.column_dimensions[get_column_letter(4+max_oc*2+1)].width = 12
     ws1.freeze_panes = "A2"
-    borders(ws1, 1, len(sorular)+1, 1, len(headers1))
+    add_borders(ws1, 1, len(sorular)+1, 1, len(headers1))
 
     # ─── SAYFA 2: LO Summary ────────────────────────────────
     ws2 = wb.create_sheet("LO Summary")
-    ws2.row_dimensions[1].height = 32
+    ws2.row_dimensions[1].height = 36
     for col, h in enumerate(["LO NO","LO DEFINITION","# QUESTIONS","QUESTION NUMBERS"],1):
-        hstyle(ws2.cell(row=1, column=col, value=h))
+        hstyle(ws2.cell(row=1, column=col, value=h), bg=TEAL)
 
     for ri, oc in enumerate(ocler, 2):
         matched = [s for s in sorular if any(o["lo"]==oc["no"] for o in eslestirmeler.get(s["no"],{}).get("outcomes",[]))]
@@ -284,30 +577,24 @@ def build_excel(sorular, ocler, eslestirmeler, anahtar, puan_esit, toplam_puan, 
         ws2.cell(ri,3,len(matched)).alignment = Alignment(horizontal="center")
         ws2.cell(ri,4,q_nums).alignment = Alignment(wrap_text=True)
         if ri%2==0:
-            for c in [1,2,3,4]: ws2.cell(ri,c).fill = PatternFill("solid",fgColor=GRAY)
+            for c in [1,2,3,4]: ws2.cell(ri,c).fill = PatternFill("solid",fgColor="F0FDFA")
 
     for col,w in zip("ABCD",[10,52,14,40]):
         ws2.column_dimensions[col].width = w
     ws2.freeze_panes = "A2"
-    borders(ws2,1,len(ocler)+1,1,4)
+    add_borders(ws2, 1, len(ocler)+1, 1, 4)
 
-    # ─── SAYFA 3: Proliz Formatı ────────────────────────────
+    # ─── SAYFA 3: Proliz Format ─────────────────────────────
     ws3 = wb.create_sheet("Proliz Format")
-    ws3.row_dimensions[1].height = 40
+    ws3.row_dimensions[1].height = 36
 
-    # Maksimum kaç ÖÇ eşleşmesi var?
-    max_oc = max((len(eslestirmeler.get(s["no"],{}).get("outcomes",[])) for s in sorular), default=1)
-    max_oc = max(max_oc, 1)
-
-    # Header
-    headers = ["Soru No", "Soru Puan", "Soru Metni"]
+    headers3 = ["Soru No", "Soru Puan", "Soru Metni"]
     for i in range(max_oc):
-        headers.append(f"DÇ Sıra {i+1}")
-        headers.append(f"Etki Oran {i+1}")
+        headers3.append(f"DÇ Sıra {i+1}")
+        headers3.append(f"Etki Oran {i+1}")
 
-    for col, h in enumerate(headers, 1):
-        c = ws3.cell(row=1, column=col, value=h)
-        hstyle(c, bg="1A3A6B")
+    for col, h in enumerate(headers3, 1):
+        hstyle(ws3.cell(row=1, column=col, value=h))
 
     for ri, s in enumerate(sorular, 2):
         esl = eslestirmeler.get(s["no"], {})
@@ -315,36 +602,31 @@ def build_excel(sorular, ocler, eslestirmeler, anahtar, puan_esit, toplam_puan, 
         puan = get_puan(s["no"])
 
         ws3.cell(ri,1,s["no"]).alignment = Alignment(horizontal="center")
-        ws3.cell(ri,2,puan).alignment = Alignment(horizontal="center")
+        ws3.cell(ri,2,puan).alignment    = Alignment(horizontal="center")
         ws3.cell(ri,3,s["text"]).alignment = Alignment(wrap_text=True, vertical="top")
 
         for i, outcome in enumerate(outcomes):
-            lo_no = outcome.get("lo","")
-            pct   = outcome.get("pct", 100)
-            lo_idx = oc_no_to_idx.get(lo_no, "")  # LO-4 → 4
-            col_base = 4 + i*2
-            ws3.cell(ri, col_base,   lo_idx).alignment = Alignment(horizontal="center")
-            ws3.cell(ri, col_base+1, pct).alignment    = Alignment(horizontal="center")
+            lo_idx = oc_no_to_idx.get(outcome.get("lo",""), "")
+            pct    = outcome.get("pct", 100)
+            cb = 4 + i*2
+            ws3.cell(ri, cb,   lo_idx).alignment = Alignment(horizontal="center")
+            ws3.cell(ri, cb+1, pct).alignment    = Alignment(horizontal="center")
 
-        # Renk
         if outcomes:
-            for c in range(1, len(headers)+1):
-                ws3.cell(ri,c).fill = PatternFill("solid", fgColor=GREEN_L)
+            for c in range(1, len(headers3)+1):
+                ws3.cell(ri,c).fill = PatternFill("solid", fgColor="EDE9FE")
         elif ri%2==0:
-            for c in range(1, len(headers)+1):
+            for c in range(1, len(headers3)+1):
                 ws3.cell(ri,c).fill = PatternFill("solid", fgColor=GRAY)
 
     ws3.column_dimensions["A"].width = 9
     ws3.column_dimensions["B"].width = 10
     ws3.column_dimensions["C"].width = 60
     for i in range(max_oc):
-        col_letter_dc  = chr(ord("D") + i*2)
-        col_letter_eti = chr(ord("E") + i*2)
-        ws3.column_dimensions[col_letter_dc].width  = 10
-        ws3.column_dimensions[col_letter_eti].width = 12
-
+        ws3.column_dimensions[get_column_letter(4+i*2)].width   = 10
+        ws3.column_dimensions[get_column_letter(4+i*2+1)].width = 12
     ws3.freeze_panes = "A2"
-    borders(ws3, 1, len(sorular)+1, 1, len(headers))
+    add_borders(ws3, 1, len(sorular)+1, 1, len(headers3))
 
     buf = io.BytesIO()
     wb.save(buf)
@@ -355,9 +637,9 @@ def build_excel(sorular, ocler, eslestirmeler, anahtar, puan_esit, toplam_puan, 
 # UI
 # ══════════════════════════════════════════════════════════════
 
-# ADIM 1: Sınav Dosyası
-st.markdown("### 📂 Step 1 — Upload Exam File")
-uploaded_exam = st.file_uploader("TXT, DOCX or PDF", type=["txt","pdf","docx","doc"], key="exam")
+# ADIM 1
+st.markdown(f"<div class='section-title'>{t('step1')}</div>", unsafe_allow_html=True)
+uploaded_exam = st.file_uploader(t("step1_sub"), type=["txt","pdf","docx","doc"], key="exam", label_visibility="collapsed")
 
 sorular = []
 exam_filename = "Exam-Outcome-Report"
@@ -391,43 +673,42 @@ if uploaded_exam:
             sorular = extract_questions(text)
 
         if sorular:
-            st.success(f"✅ {len(sorular)} questions found")
-            with st.expander("Preview", expanded=False):
+            st.success(f"✅ {len(sorular)} {t('step1_ok')}")
+            with st.expander(f"👁 {t('preview')}", expanded=False):
                 for s in sorular:
                     st.markdown(f"**{s['no']}.** {s['text'][:120]}...")
         else:
-            st.error("❌ No questions found")
+            st.error(t("step1_err"))
     except Exception as e:
         st.error(f"❌ {e}")
 
 st.divider()
 
-# ADIM 2: ÖÇ
-st.markdown("### 🎯 Step 2 — Learning Outcomes")
-tab1, tab2 = st.tabs(["📄 Extract from PDF", "✏️ Enter Manually"])
+# ADIM 2
+st.markdown(f"<div class='section-title'>{t('step2')}</div>", unsafe_allow_html=True)
+tab1, tab2 = st.tabs([t("tab_pdf"), t("tab_manual")])
 
 ocler = []
 with tab1:
-    st.info("Upload Bilgi Paketi PDF — outcomes extracted automatically.")
-    uploaded_bp = st.file_uploader("Bilgi Paketi PDF", type=["pdf"], key="bilgi")
+    st.info(t("pdf_info"))
+    uploaded_bp = st.file_uploader(t("pdf_upload"), type=["pdf"], key="bilgi")
     if uploaded_bp:
-        with st.spinner("Extracting outcomes..."):
+        with st.spinner(t("oc_extracting")):
             try:
                 extracted = extract_oc_from_pdf(uploaded_bp.read())
                 if extracted:
-                    st.success(f"✅ {len(extracted)} outcomes extracted!")
+                    st.success(f"✅ {len(extracted)} {t('pdf_ok')}")
                     for oc in extracted:
                         st.markdown(f"**{oc['no']}** — {oc['tanim'][:80]}...")
                     ocler = extracted
                 else:
-                    st.error("❌ No outcomes found")
+                    st.error(t("pdf_err"))
             except Exception as e:
                 st.error(f"❌ {e}")
 
 with tab2:
-    st.info("💡 One per line: `LO-1: definition`")
-    oc_manual = st.text_area("Paste outcomes", height=160, label_visibility="collapsed",
-        placeholder="LO-1: Explains ML algorithms\nLO-2: Applies methods")
+    st.info(t("manual_info"))
+    oc_manual = st.text_area("", height=160, placeholder=t("manual_ph"))
     if oc_manual.strip():
         for line in oc_manual.strip().split("\n"):
             if ":" in line:
@@ -436,73 +717,69 @@ with tab2:
                 if no and tanim:
                     ocler.append({"no":no,"tanim":tanim})
         if ocler:
-            st.success(f"✅ {len(ocler)} outcomes defined")
+            st.success(f"✅ {len(ocler)} {t('outcomes_ok')}")
 
 st.divider()
 
-# ADIM 3: Puan Ayarları
-st.markdown("### 💯 Step 3 — Scoring")
-
+# ADIM 3
+st.markdown(f"<div class='section-title'>{t('step3')}</div>", unsafe_allow_html=True)
 col1, col2 = st.columns(2)
 with col1:
-    toplam_puan = st.number_input("Total exam points", min_value=1, max_value=1000, value=100)
+    toplam_puan = st.number_input(t("total_pts"), min_value=1, max_value=1000, value=100)
 with col2:
-    puan_tipi = st.radio("Question scoring", ["Equal (auto)", "Custom per question"], horizontal=True)
+    puan_tipi = st.radio(t("scoring_type"), [t("equal"), t("custom")], horizontal=True)
 
-puan_esit = puan_tipi == "Equal (auto)"
+puan_esit = puan_tipi == t("equal")
 ozel_puanlar = {}
 
 if not puan_esit and sorular:
-    st.markdown("**Enter score for each question:**")
+    st.markdown(f"**{t('enter_scores')}**")
     cols = st.columns(5)
     for i, s in enumerate(sorular):
         with cols[i % 5]:
             ozel_puanlar[s["no"]] = st.number_input(
                 f"Q{s['no']}", min_value=0.0, max_value=float(toplam_puan),
                 value=round(toplam_puan/len(sorular),1),
-                key=f"puan_{s['no']}", label_visibility="visible"
+                key=f"puan_{s['no']}"
             )
     total_check = sum(ozel_puanlar.values())
     if abs(total_check - toplam_puan) > 0.5:
-        st.warning(f"⚠️ Total: {total_check} (should be {toplam_puan})")
+        st.warning(f"{t('total_warn')} {total_check} (= {toplam_puan})")
     else:
-        st.success(f"✅ Total: {total_check}")
+        st.success(f"{t('total_ok')} {total_check}")
 
 st.divider()
 
 # ADIM 4: Cevap anahtarı
-with st.expander("📝 Answer Key (optional)"):
-    anahtar = st.text_input("Answer key (ABCDE...)", placeholder="ABCDEABCDE...").upper()
+with st.expander(t("answer_key")):
+    anahtar = st.text_input("", placeholder=t("answer_ph")).upper()
 
 st.divider()
 
 # ADIM 5: Rapor
-st.markdown("### 📊 Step 4 — Generate Report")
+st.markdown(f"<div class='section-title'>{t('step4')}</div>", unsafe_allow_html=True)
 
 ready = bool(sorular) and bool(ocler)
 if not ready:
-    if not sorular: st.warning("⬆ Upload an exam file first")
-    if not ocler:   st.warning("⬆ Define learning outcomes first")
+    if not sorular: st.warning(t("no_exam"))
+    if not ocler:   st.warning(t("no_oc"))
 else:
     if puan_esit:
         puan_per_q = round(toplam_puan / len(sorular), 2)
-        st.success(f"Ready: **{len(sorular)} questions** × **{len(ocler)} outcomes** — {puan_per_q} pts each")
+        st.success(f"{t('ready_equal')} **{len(sorular)} {t('questions')}** × **{len(ocler)} {t('outcomes')}** — {puan_per_q} {t('ready_pts')}")
     else:
-        st.success(f"Ready: **{len(sorular)} questions** × **{len(ocler)} outcomes** — custom scoring")
+        st.success(f"{t('ready_equal')} **{len(sorular)} {t('questions')}** × **{len(ocler)} {t('outcomes')}** — {t('ready_custom')}")
 
-    if st.button("🚀 Map with AI & Generate Excel", type="primary", use_container_width=True):
+    if st.button(t("map_btn"), type="primary", use_container_width=True):
         try:
             eslestirmeler = auto_match(sorular, ocler)
             mapped = sum(1 for v in eslestirmeler.values() if v.get("outcomes"))
-            multi = sum(1 for v in eslestirmeler.values() if len(v.get("outcomes",[])) > 1)
-
-            st.success(f"✅ {mapped}/{len(sorular)} questions mapped — {multi} matched to multiple outcomes")
+            multi  = sum(1 for v in eslestirmeler.values() if len(v.get("outcomes",[])) > 1)
+            st.success(f"✅ {mapped}/{len(sorular)} {t('mapped_ok')} — {multi} {t('multi_match')}")
 
             excel_bytes = build_excel(sorular, ocler, eslestirmeler, anahtar, puan_esit, toplam_puan, ozel_puanlar)
-
             st.download_button(
-                "⬇ Download Excel Report (.xlsx)",
-                excel_bytes,
+                t("download"), excel_bytes,
                 f"{exam_filename}-Outcome-Report.xlsx",
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 use_container_width=True, type="primary"
