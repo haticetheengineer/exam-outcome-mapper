@@ -430,19 +430,26 @@ Return ONLY this JSON format:
             st.session_state.eslestirmeler[sno] = {"oc_no": sel, "zorluk": sel_z}
 
     st.markdown("---")
-    with st.expander("📝 Answer Key & Students (optional)"):
-        st.session_state.anahtar = st.text_input("Answer Key", value=st.session_state.anahtar, placeholder="ABCDE...").upper()
-        ogr_raw = st.text_area("Students (NAME\\tID\\tANSWERS)", height=100)
-        if ogr_raw:
-            ogrenciler = []
-            for line in ogr_raw.strip().split("\n"):
-                parts = re.split(r'\s{2,}|\t', line.strip())
-                if len(parts) >= 2:
-                    ogrenciler.append({"ad":" ".join(parts[:-2]),"no":parts[-2],"cevaplar":parts[-1].upper()})
-            st.session_state.ogrenciler = ogrenciler
 
-    if st.button("📊 Generate Excel", type="primary", use_container_width=True):
-        st.session_state.step = 4; st.rerun()
+    # Excel'i BURADAN indir — adım 4'e geçme
+    mapped_now = sum(1 for v in st.session_state.eslestirmeler.values() if v.get("oc_no"))
+    if mapped_now > 0:
+        st.success(f"✅ {mapped_now}/{len(st.session_state.sorular)} sorular eşleşti. Excel'i hemen indirebilirsiniz!")
+        excel_bytes = build_excel(
+            st.session_state.sorular, st.session_state.ocler,
+            st.session_state.eslestirmeler, st.session_state.ogrenciler,
+            st.session_state.anahtar
+        )
+        st.download_button(
+            "⬇ Download Excel Report (.xlsx)",
+            excel_bytes,
+            "Exam-Outcome-Report.xlsx",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True, type="primary"
+        )
+    else:
+        if st.button("📊 Generate Excel", type="primary", use_container_width=True):
+            st.session_state.step = 4; st.rerun()
 
 # ══════════════════════════════════════════════════════════════
 # STEP 4
