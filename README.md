@@ -5,7 +5,7 @@
 
 🔗 **Live App:** [tekisjet-exammapper.streamlit.app](https://tekisjet-exammapper.streamlit.app)
 
-📖 User Guide: haticetheengineer.github.io/exam-outcome-mapper/USER_GUIDE.html
+📖 **User Guide:** haticetheengineer.github.io/exam-outcome-mapper/USER_GUIDE.html
 ---
 
 ## What It Does
