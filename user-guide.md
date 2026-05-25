@@ -127,7 +127,7 @@ Set the total points for the exam (default: 100).
 
 **Equal (auto)** — Every question gets the same points.  
 `Total ÷ Number of questions`  
-Example: 100 points ÷ 52 questions = 1.92 pts each
+Example: 100 points ÷ 50 questions = 2.00 pts each
 
 **Custom per question** — Individual point boxes appear for each question.  
 Enter the score for each one. The app shows a running total:
@@ -155,7 +155,7 @@ Fill in the four fields to personalise the rubric DOCX header:
 
 | Field | Example |
 |---|---|
-| Instructor | Öğr. Gör. Hatice Yıldız |
+| Instructor | Öğr. Gör. Hatice Tekiş |
 | Exam Type | Vize / Final / Quiz |
 | Department / Program | Bilgisayar Programcılığı |
 | Exam Date | 01/06/2026 |
