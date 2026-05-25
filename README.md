@@ -63,8 +63,8 @@ Upload an exam file, define your course learning outcomes, click one button — 
 | LO Rank / ÖÇ Sıra | Matched learning outcome index |
 | Weight / Etki Oran | Match percentage (sums to 100) |
 | Bloom's Taxonomy | Cognitive level classification |
-| Difficulty | Easy / Medium / Hard |
-| Answer Key | Correct answer (if provided) |
+| Difficulty Level / Zorluk Seviyesi | Easy / Medium / Hard |
+| Answer Key / Cevap Anahtarı | Correct answer (if provided) |
 
 ### Sheet 2 — LO Summary
 Per-outcome summary: how many questions map to each outcome and which question numbers.
@@ -120,7 +120,7 @@ DEEPSEEK_API_KEY = "sk-..."
 
 ### 4. Run
 ```bash
-streamlit run app-4.py
+streamlit run app.py
 ```
 
 ---
