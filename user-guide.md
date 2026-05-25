@@ -177,7 +177,7 @@ Click it. The AI processes questions in batches of 20. A progress bar shows whic
 - Whether it is Easy, Medium, or Hard
 
 When done you will see:
-> ✅ **52/52 questions mapped — 3 matched to multiple outcomes**
+> ✅ **50/50 questions mapped — 3 matched to multiple outcomes**
 
 Two download buttons then appear:
 
@@ -326,4 +326,4 @@ Click the **🌙 Dark** or **☀️ Light** button in the sidebar to toggle the 
 
 ---
 
-<p align="center">by Lecturer Hatice Tekiş &nbsp;·&nbsp; Kapadokya University</p>
+<p align="center">by Lecturer Hatice Tekiş 🚀 &nbsp;·&nbsp; Kapadokya University 🏫 </p>
